@@ -568,38 +568,93 @@ async function publishReply(reviewId){
   }catch(e){if(statusEl){statusEl.textContent='❌ Ошибка';statusEl.className='status-pill pill-err'}}
 }
 
-// ── Вопросы ───────────────────────────────────────────────────────────────────
+// ── Вопросы — напрямую через WB API ──────────────────────────────────────────
 async function loadQuestions(){
   const el=document.getElementById('questionsContent');
   const token=cabToken();
-  if(!token){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
-  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю...</div></div>';
+  if(!token){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет в настройках</div></div>';return}
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю вопросы...</div></div>';
   try{
-    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
-        task:'Покажи вопросы покупателей без ответа в виде списка'})});
+    const res=await fetch(`/questions?wb_token=${encodeURIComponent(token)}&take=30`);
+    if(!res.ok)throw new Error(`WB API: ${res.status}`);
     const data=await res.json();
-    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Вопросов нет'}</div>`;
-  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
+    const questions=data?.data?.questions||[];
+    if(!questions.length){el.innerHTML='<div class="empty"><div class="empty-icon">🎉</div><div>Вопросов без ответа нет</div></div>';return}
+    let html='';
+    questions.forEach(q=>{
+      const date=q.createdDate?(new Date(q.createdDate)).toLocaleDateString('ru'):'';
+      html+=`<div class="review-card star3" style="margin-bottom:12px">
+        <div class="review-header">
+          <div><div style="font-size:14px;font-weight:500">${q.productDetails?.productName||'Товар'}</div>
+          <div class="review-product">${q.userName||'Покупатель'} · ${date}</div></div>
+        </div>
+        <div class="review-text">${q.text||'(без текста)'}</div>
+        <div class="reply-box">
+          <div class="reply-label">💬 Ответ</div>
+          <div class="reply-text" id="qt-${q.id}" contenteditable="false"></div>
+        </div>
+        <div class="review-actions">
+          <button class="btn btn-outline btn-sm" onclick="genQReply('${q.id}','${(q.productDetails?.productName||'').replace(/'/g,"\\'")}','${(q.text||'').replace(/'/g,"\\'").substring(0,200)}')">✨ Сгенерировать</button>
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('qt-${q.id}').contentEditable='true';document.getElementById('qt-${q.id}').focus()">✏ Редактировать</button>
+        </div>
+      </div>`;
+    });
+    el.innerHTML=`<div style="font-size:13px;color:#666;margin-bottom:12px">Вопросов без ответа: <b>${questions.length}</b></div>${html}`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`}
 }
 
-// ── Заказы ────────────────────────────────────────────────────────────────────
+async function genQReply(qId, product, text){
+  if(!S.anthropicKey){alert('Добавь Anthropic API ключ');return}
+  const el=document.getElementById('qt-'+qId);
+  if(el){el.textContent='Генерирую...'}
+  try{
+    const res=await fetch('/reviews/generate-reply',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anthropic_key:S.anthropicKey,review_id:qId,stars:5,product,text,user_name:'Покупатель'})});
+    const data=await res.json();
+    if(el&&data.success)el.textContent=data.reply;
+  }catch(e){if(el)el.textContent='Ошибка генерации'}
+}
+
+// ── Заказы — напрямую через WB API ───────────────────────────────────────────
 async function loadOrders(){
   const el=document.getElementById('ordersContent');
   const c=cab();
   if(!c){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
-  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю...</div></div>';
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю заказы...</div></div>';
   const token=c.tokenSupplies||c.tokenFeedback;
   try{
-    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
-        task:'Покажи новые заказы FBS в виде таблицы: номер заказа, артикул, цена'})});
+    const res=await fetch(`/orders/new?wb_token=${encodeURIComponent(token)}`);
+    if(!res.ok)throw new Error(`WB API: ${res.status} — возможно нужен токен «Маркетплейс/Поставки»`);
     const data=await res.json();
-    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Заказов нет'}</div>`;
-  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
+    const orders=data?.orders||[];
+    if(!orders.length){el.innerHTML='<div class="empty"><div class="empty-icon">🎉</div><div>Новых заказов нет</div></div>';return}
+    let rows=orders.map(o=>`
+      <tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:10px 8px;font-size:13px">#${o.id}</td>
+        <td style="padding:10px 8px;font-size:13px">${o.article||'—'}</td>
+        <td style="padding:10px 8px;font-size:13px">${o.price?Math.round(o.price/100)+'₽':'—'}</td>
+        <td style="padding:10px 8px;font-size:13px">${o.warehouseId||'—'}</td>
+        <td style="padding:10px 8px;font-size:12px;color:#888">${o.createdAt?(new Date(o.createdAt)).toLocaleDateString('ru'):''}</td>
+      </tr>`).join('');
+    el.innerHTML=`
+      <div style="font-size:13px;color:#666;margin-bottom:12px">Новых заказов FBS: <b>${orders.length}</b></div>
+      <div style="background:#fff;border-radius:11px;border:1px solid #e8e8e8;overflow:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:2px solid #f0f0f0;background:#fafafa">
+            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#888">№ заказа</th>
+            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#888">Артикул</th>
+            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#888">Цена</th>
+            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#888">Склад</th>
+            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#888">Дата</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`}
 }
 
-// ── Товары ────────────────────────────────────────────────────────────────────
+// ── Товары — напрямую через WB API ───────────────────────────────────────────
 async function loadGoods(){
   const el=document.getElementById('goodsContent');
   const c=cab();
@@ -607,12 +662,42 @@ async function loadGoods(){
   el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю товары...</div></div>';
   const token=c.tokenPrices||c.tokenFeedback;
   try{
-    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
-        task:'Покажи все товары с ценами и скидками в виде списка'})});
+    const res=await fetch(`/goods?wb_token=${encodeURIComponent(token)}&limit=200`);
+    if(!res.ok)throw new Error(`WB API: ${res.status} — нужен токен «Цены и скидки»`);
     const data=await res.json();
-    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Товаров нет'}</div>`;
-  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
+    const goods=data?.data?.listGoods||[];
+    if(!goods.length){el.innerHTML='<div class="empty"><div class="empty-icon">🏷</div><div>Товаров нет</div></div>';return}
+    let rows=goods.map(g=>{
+      const sz=g.sizes?.[0]||{};
+      const price=sz.price||0;
+      const disc=sz.discountedPrice||0;
+      const pct=g.discount||0;
+      return`<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:9px 8px;font-size:13px">${g.nmID}</td>
+        <td style="padding:9px 8px;font-size:13px">${g.vendorCode||'—'}</td>
+        <td style="padding:9px 8px;font-size:13px">${price}₽</td>
+        <td style="padding:9px 8px;font-size:13px;color:${pct>0?'#16a34a':'#888'}">${pct}%</td>
+        <td style="padding:9px 8px;font-size:13px;font-weight:500">${disc}₽</td>
+      </tr>`;
+    }).join('');
+    el.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;color:#666">Товаров: <b>${goods.length}</b></div>
+        <button class="btn btn-outline btn-sm" onclick="sendQuick('Подними цены на все товары на 5%');showPage('chat')">💬 Изменить через агента</button>
+      </div>
+      <div style="background:#fff;border-radius:11px;border:1px solid #e8e8e8;overflow:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:2px solid #f0f0f0;background:#fafafa">
+            <th style="padding:9px 8px;text-align:left;font-size:12px;color:#888">nmID</th>
+            <th style="padding:9px 8px;text-align:left;font-size:12px;color:#888">Артикул</th>
+            <th style="padding:9px 8px;text-align:left;font-size:12px;color:#888">Цена</th>
+            <th style="padding:9px 8px;text-align:left;font-size:12px;color:#888">Скидка</th>
+            <th style="padding:9px 8px;text-align:left;font-size:12px;color:#888">Итого</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`}
 }
 
 // ── Инициализация ─────────────────────────────────────────────────────────────
