@@ -73,7 +73,8 @@ class WBClient:
             {"isAnswered": is_answered, "take": take, "skip": 0, "order": "dateDesc"})
 
     def reply_review(self, review_id, text):
-        return self.patch(self.FEEDBACK, "/api/v1/feedbacks", {"id": review_id, "text": text})
+        return self.post(self.FEEDBACK, "/api/v1/feedbacks/answer",
+            {"id": review_id, "answer": {"text": text}})
 
     def get_review_count(self):
         return self.get(self.FEEDBACK, "/api/v1/feedbacks/count")
@@ -508,6 +509,8 @@ async def agent_endpoint(req: AgentRequest):
         raise HTTPException(500, str(e))
 
 
+# ── Прямые эндпоинты WB API (без Claude — быстро и дёшево) ───────────────────
+
 @app.get("/reviews")
 async def get_reviews(wb_token: str, is_answered: bool = False, take: int = 20):
     try:
@@ -519,8 +522,59 @@ async def get_reviews(wb_token: str, is_answered: bool = False, take: int = 20):
         raise HTTPException(500, str(e))
 
 
+@app.get("/orders/new")
+async def get_new_orders(wb_token: str):
+    """Новые заказы FBS — напрямую без Claude"""
+    try:
+        wb = WBClient(wb_token)
+        return wb.get_new_orders()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, e.response.text)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/goods")
+async def get_goods(wb_token: str, limit: int = 100):
+    """Товары с ценами — напрямую без Claude"""
+    try:
+        wb = WBClient(wb_token)
+        return wb.get_goods(limit=limit)
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, e.response.text)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/questions")
+async def get_questions(wb_token: str, is_answered: bool = False, take: int = 20):
+    """Вопросы покупателей — напрямую без Claude"""
+    try:
+        wb = WBClient(wb_token)
+        return wb.get_questions(is_answered, take)
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, e.response.text)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/adverts")
+async def get_adverts(wb_token: str):
+    """Рекламные кампании — напрямую без Claude"""
+    try:
+        wb = WBClient(wb_token)
+        return wb.get_adverts()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, e.response.text)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+# ── Генерация ответов через Claude ────────────────────────────────────────────
+
 @app.post("/reviews/generate-reply")
 async def generate_reply(req: GenerateReplyRequest):
+    """Генерация одного ответа на отзыв через Claude"""
     try:
         claude = anthropic.Anthropic(api_key=req.anthropic_key)
         prompt = f"""Напиши вежливый ответ продавца на отзыв покупателя на Wildberries.
@@ -533,7 +587,7 @@ async def generate_reply(req: GenerateReplyRequest):
 
 Правила WB: только о товаре, без рекламы, без ссылок, вежливо, до 1000 символов."""
         r = claude.messages.create(
-            model="claude-sonnet-4-6", max_tokens=500,
+            model="claude-haiku-4-5-20251001", max_tokens=400,
             messages=[{"role": "user", "content": prompt}])
         return {"success": True, "reply": r.content[0].text}
     except anthropic.AuthenticationError:
@@ -544,6 +598,7 @@ async def generate_reply(req: GenerateReplyRequest):
 
 @app.post("/reviews/generate-all")
 async def generate_all_replies(req: GenerateAllRequest):
+    """Генерация ответов на все отзывы через Claude (используем Haiku — дешевле)"""
     try:
         claude = anthropic.Anthropic(api_key=req.anthropic_key)
         results = []
@@ -554,7 +609,7 @@ async def generate_all_replies(req: GenerateAllRequest):
 Отзыв: {rev.get('text','(без текста)')}
 Правила: только о товаре, без рекламы, вежливо, до 1000 символов."""
             r = claude.messages.create(
-                model="claude-sonnet-4-6", max_tokens=400,
+                model="claude-haiku-4-5-20251001", max_tokens=350,
                 messages=[{"role": "user", "content": prompt}])
             results.append({"review_id": rev.get("id"), "reply": r.content[0].text})
         return {"success": True, "results": results}
@@ -564,6 +619,7 @@ async def generate_all_replies(req: GenerateAllRequest):
 
 @app.post("/reviews/publish")
 async def publish_reply(req: PublishReplyRequest):
+    """Публикация ответа на отзыв через WB API"""
     try:
         wb = WBClient(req.wb_token)
         wb.reply_review(req.review_id, req.text)
