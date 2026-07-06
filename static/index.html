@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WB Agent</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0ede8;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 260px;
+    height: 100vh;
+    background: #1a1a1a;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+  }
+
+  .logo {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    padding: 0 8px 16px;
+    border-bottom: 1px solid #333;
+    margin-bottom: 8px;
+  }
+  .logo span { color: #8b5cf6; }
+
+  .cabinet-label {
+    font-size: 11px;
+    color: #666;
+    padding: 0 8px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-top: 8px;
+  }
+
+  .cabinet-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #aaa;
+    font-size: 14px;
+    transition: background .15s;
+  }
+  .cabinet-item:hover { background: #2a2a2a; color: #fff; }
+  .cabinet-item.active { background: #2a2a2a; color: #fff; }
+  .cabinet-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+  }
+  .cabinet-dot.grey { background: #555; }
+
+  .add-cabinet {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #555;
+    font-size: 14px;
+    border: 1px dashed #333;
+    margin-top: 4px;
+    transition: all .15s;
+  }
+  .add-cabinet:hover { border-color: #555; color: #aaa; }
+
+  .nav-section {
+    margin-top: auto;
+    border-top: 1px solid #333;
+    padding-top: 12px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #aaa;
+    font-size: 14px;
+    transition: background .15s;
+  }
+  .nav-item:hover { background: #2a2a2a; color: #fff; }
+  .nav-item.active { background: #2a2a2a; color: #fff; }
+
+  .main {
+    margin-left: 260px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .topbar-title { font-size: 16px; font-weight: 500; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .badge {
+    background: #fee2e2;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge.green { background: #dcfce7; color: #16a34a; }
+  .badge.purple { background: #ede9fe; color: #7c3aed; }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ─── Чат ──────────────────────────────────────────────────────────────── */
+
+  .chat-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .msg {
+    display: flex;
+    gap: 12px;
+    max-width: 720px;
+  }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .msg-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .msg-avatar.agent { background: #7c3aed; }
+
+  .msg-bubble {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .msg.user .msg-bubble {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  .msg-steps {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f8f7f5;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #666;
+    font-family: monospace;
+    line-height: 1.8;
+  }
+
+  .typing {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+    align-items: center;
+  }
+  .typing-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #aaa;
+    animation: bounce .8s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: .15s; }
+  .typing-dot:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce {
+    0%,80%,100% { transform: translateY(0); }
+    40% { transform: translateY(-6px); }
+  }
+
+  .chat-input-wrap {
+    background: #fff;
+    border-top: 1px solid #e5e5e5;
+    padding: 16px 24px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+  }
+
+  .quick-tasks {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 24px 12px;
+  }
+  .quick-btn {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #444;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .quick-btn:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
+
+  textarea {
+    flex: 1;
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    min-height: 44px;
+    max-height: 120px;
+    line-height: 1.5;
+    transition: border-color .15s;
+  }
+  textarea:focus { border-color: #7c3aed; }
+
+  .send-btn {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { background: #6d28d9; }
+  .send-btn:disabled { background: #c4b5fd; cursor: not-allowed; }
+
+  /* ─── Отзывы ──────────────────────────────────────────────────────────── */
+
+  .reviews-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .review-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .review-card.negative { border-left: 3px solid #ef4444; }
+  .review-card.positive { border-left: 3px solid #22c55e; }
+
+  .review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .review-meta { display: flex; flex-direction: column; gap: 2px; }
+  .review-stars { font-size: 16px; }
+  .review-product { font-size: 12px; color: #888; }
+  .review-text { font-size: 14px; color: #333; line-height: 1.5; margin-bottom: 12px; }
+
+  .review-reply-area {
+    background: #faf5ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .review-reply-label {
+    font-size: 11px;
+    color: #7c3aed;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .review-reply-text {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  .review-actions { display: flex; gap: 8px; }
+  .btn { border-radius: 8px; padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all .15s; }
+  .btn-publish { background: #22c55e; color: #fff; border-color: #22c55e; }
+  .btn-publish:hover { background: #16a34a; }
+  .btn-edit { background: #fff; color: #444; border-color: #e5e5e5; }
+  .btn-edit:hover { border-color: #999; }
+  .btn-skip { background: #fff; color: #888; border-color: #e5e5e5; }
+  .btn-skip:hover { color: #ef4444; border-color: #ef4444; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-purple { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+  .btn-purple:hover { background: #6d28d9; }
+
+  /* ─── Настройки ────────────────────────────────────────────────────────── */
+
+  .settings-card {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 560px;
+  }
+  .settings-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field-label { font-size: 13px; color: #555; font-weight: 500; }
+  .field-input {
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+    outline: none;
+    font-family: monospace;
+    transition: border-color .15s;
+  }
+  .field-input:focus { border-color: #7c3aed; }
+  .field-hint { font-size: 12px; color: #aaa; }
+
+  .page { display: none; flex-direction: column; height: 100%; }
+  .page.active { display: flex; }
+
+  .page-header {
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .page-title { font-size: 16px; font-weight: 500; }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px;
+    color: #aaa;
+    text-align: center;
+  }
+  .empty-icon { font-size: 40px; }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .status-pill.ok { background: #dcfce7; color: #16a34a; }
+  .status-pill.err { background: #fee2e2; color: #dc2626; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="logo">WB <span>Agent</span></div>
+
+  <div class="cabinet-label">Кабинеты</div>
+  <div id="cabinetList"></div>
+  <div class="add-cabinet" onclick="showPage('settings')">
+    + Добавить кабинет
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-item active" id="nav-chat" onclick="showPage('chat')">
+      💬 Агент (чат)
+    </div>
+    <div class="nav-item" id="nav-reviews" onclick="showPage('reviews'); loadReviews();">
+      ⭐ Отзывы
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="showPage('settings')">
+      ⚙️ Настройки
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ─── ЧАТ ─────────────────────────────────────────────────────────── -->
+  <div class="page active" id="page-chat">
+    <div class="page-header">
+      <span class="page-title">Агент</span>
+      <span id="agentStatus" class="status-pill ok">● Готов</span>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg">
+        <div class="msg-avatar agent">AI</div>
+        <div>
+          <div class="msg-bubble">Привет! Я агент управления твоим магазином на Wildberries.
+
+Могу помочь:
+• Ответить на отзывы покупателей
+• Поднять или снизить цены на товары
+• Проверить новые заказы
+• Посмотреть статистику
+
+Добавь кабинет в настройках и пиши задание — выполню!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-tasks" id="quickTasks">
+      <button class="quick-btn" onclick="sendQuick('Покажи новые отзывы без ответа')">📬 Новые отзывы</button>
+      <button class="quick-btn" onclick="sendQuick('Покажи новые заказы')">📦 Новые заказы</button>
+      <button class="quick-btn" onclick="sendQuick('Покажи все товары с ценами')">🏷 Цены товаров</button>
+      <button class="quick-btn" onclick="sendQuick('Ответь на все положительные отзывы (4-5 звёзд) вежливо')">✨ Ответить на позитив</button>
+    </div>
+
+    <div class="chat-input-wrap">
+      <textarea id="taskInput" placeholder="Напиши задание агенту... Например: подними цены на все товары на 5%" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTask()}"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendTask()">Отправить</button>
+    </div>
+  </div>
+
+  <!-- ─── ОТЗЫВЫ ───────────────────────────────────────────────────────── -->
+  <div class="page" id="page-reviews">
+    <div class="page-header">
+      <span class="page-title">Отзывы</span>
+      <button class="btn btn-purple btn-sm" onclick="loadReviews()">Обновить</button>
+    </div>
+    <div class="content" id="reviewsContent">
+      <div class="empty-state">
+        <div class="empty-icon">⭐</div>
+        <div>Загрузка отзывов...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── НАСТРОЙКИ ─────────────────────────────────────────────────────── -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <span class="page-title">Настройки</span>
+    </div>
+    <div class="content">
+
+      <div class="settings-card">
+        <div class="settings-title">Добавить кабинет WB</div>
+
+        <div class="field-group">
+          <div class="field-label">Название кабинета</div>
+          <input class="field-input" id="cabName" type="text" placeholder="Мой магазин / Клиент Иванов">
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">WB токен (Отзывы и вопросы)</div>
+          <input class="field-input" id="cabWbToken" type="password" placeholder="eyJhbGci...">
+          <div class="field-hint">ЛК WB → Настройки → Доступ к API → Общение с покупателями (Чтение + Запись)</div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">WB токен (Цены и скидки)</div>
+          <input class="field-input" id="cabPriceToken" type="password" placeholder="eyJhbGci...">
+          <div class="field-hint">ЛК WB → Настройки → Доступ к API → Цены и скидки</div>
+        </div>
+
+        <button class="btn btn-purple" onclick="addCabinet()" style="width:100%;margin-top:4px">Добавить кабинет</button>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-title">Anthropic API ключ</div>
+        <div class="field-group">
+          <div class="field-label">Ключ</div>
+          <input class="field-input" id="anthropicKey" type="password" placeholder="sk-ant-...">
+          <div class="field-hint">console.anthropic.com → API Keys → Create Key</div>
+        </div>
+        <button class="btn btn-edit" onclick="saveAnthropicKey()">Сохранить</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── Хранилище ────────────────────────────────────────────────────────────────
+
+const store = {
+  get cabinets() { return JSON.parse(localStorage.getItem('cabinets') || '[]'); },
+  set cabinets(v) { localStorage.setItem('cabinets', JSON.stringify(v)); },
+  get activeCab() { return parseInt(localStorage.getItem('activeCab') || '0'); },
+  set activeCab(v) { localStorage.setItem('activeCab', v); },
+  get anthropicKey() { return localStorage.getItem('anthropicKey') || ''; },
+  set anthropicKey(v) { localStorage.setItem('anthropicKey', v); },
+};
+
+// ─── Навигация ────────────────────────────────────────────────────────────────
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+}
+
+// ─── Кабинеты ─────────────────────────────────────────────────────────────────
+
+function renderCabinets() {
+  const list = document.getElementById('cabinetList');
+  const cabs = store.cabinets;
+  list.innerHTML = '';
+  cabs.forEach((cab, i) => {
+    const el = document.createElement('div');
+    el.className = 'cabinet-item' + (i === store.activeCab ? ' active' : '');
+    el.innerHTML = `<div class="cabinet-dot"></div><span>${cab.name}</span>`;
+    el.onclick = () => { store.activeCab = i; renderCabinets(); };
+    list.appendChild(el);
+  });
+}
+
+function addCabinet() {
+  const name = document.getElementById('cabName').value.trim();
+  const wbToken = document.getElementById('cabWbToken').value.trim();
+  const priceToken = document.getElementById('cabPriceToken').value.trim();
+  if (!name || !wbToken) { alert('Заполни название и токен отзывов'); return; }
+  const cabs = store.cabinets;
+  cabs.push({ name, wbToken, priceToken });
+  store.cabinets = cabs;
+  store.activeCab = cabs.length - 1;
+  document.getElementById('cabName').value = '';
+  document.getElementById('cabWbToken').value = '';
+  document.getElementById('cabPriceToken').value = '';
+  renderCabinets();
+  addSystemMsg(`✅ Кабинет "${name}" добавлен`);
+  showPage('chat');
+}
+
+function saveAnthropicKey() {
+  const key = document.getElementById('anthropicKey').value.trim();
+  if (!key) { alert('Введи ключ'); return; }
+  store.anthropicKey = key;
+  alert('Ключ сохранён');
+}
+
+function getActiveCabinet() {
+  const cabs = store.cabinets;
+  return cabs[store.activeCab] || null;
+}
+
+// ─── Чат ─────────────────────────────────────────────────────────────────────
+
+function addMsg(role, text, steps) {
+  const wrap = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg' + (role === 'user' ? ' user' : '');
+  const avatar = role === 'user' ? 'Я' : 'AI';
+  const cls = role === 'user' ? '' : ' agent';
+  let stepsHtml = '';
+  if (steps && steps.length) {
+    stepsHtml = `<div class="msg-steps">${steps.join('\n')}</div>`;
+  }
+  div.innerHTML = `
+    <div class="msg-avatar${cls}">${avatar}</div>
+    <div>
+      <div class="msg-bubble">${text}</div>
+      ${stepsHtml}
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+
+function addTyping() {
+  const wrap = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.id = 'typingMsg';
+  div.innerHTML = `
+    <div class="msg-avatar agent">AI</div>
+    <div class="msg-bubble">
+      <div class="typing">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingMsg');
+  if (el) el.remove();
+}
+
+function addSystemMsg(text) {
+  const wrap = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.style.cssText = 'text-align:center;font-size:12px;color:#aaa;padding:4px 0';
+  div.textContent = text;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendTask() {
+  const input = document.getElementById('taskInput');
+  const task = input.value.trim();
+  if (!task) return;
+
+  const cab = getActiveCabinet();
+  if (!cab) {
+    addSystemMsg('⚠️ Сначала добавь кабинет в настройках');
+    showPage('settings');
+    return;
+  }
+  if (!store.anthropicKey) {
+    addSystemMsg('⚠️ Добавь Anthropic API ключ в настройках');
+    showPage('settings');
+    return;
+  }
+
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('agentStatus').textContent = '● Работает';
+  document.getElementById('agentStatus').className = 'status-pill';
+  document.getElementById('agentStatus').style.background = '#fef9c3';
+  document.getElementById('agentStatus').style.color = '#854d0e';
+
+  addMsg('user', task);
+  addTyping();
+
+  try {
+    const res = await fetch('/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wb_token: cab.wbToken,
+        anthropic_key: store.anthropicKey,
+        task
+      })
+    });
+    const data = await res.json();
+    removeTyping();
+
+    if (data.success) {
+      addMsg('agent', data.result, data.steps);
+    } else {
+      addMsg('agent', '❌ ' + data.result, data.steps);
+    }
+  } catch (e) {
+    removeTyping();
+    addMsg('agent', '❌ Ошибка соединения: ' + e.message);
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('agentStatus').textContent = '● Готов';
+  document.getElementById('agentStatus').className = 'status-pill ok';
+  document.getElementById('agentStatus').style = '';
+}
+
+function sendQuick(text) {
+  document.getElementById('taskInput').value = text;
+  sendTask();
+}
+
+// ─── Отзывы ──────────────────────────────────────────────────────────────────
+
+async function loadReviews() {
+  const cab = getActiveCabinet();
+  const el = document.getElementById('reviewsContent');
+  if (!cab) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔑</div><div>Добавь кабинет в настройках</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div>Загружаю отзывы...</div></div>';
+
+  try {
+    const res = await fetch(`/reviews?wb_token=${encodeURIComponent(cab.wbToken)}`);
+    const data = await res.json();
+    const reviews = data?.data?.feedbacks || [];
+
+    if (!reviews.length) {
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><div>Новых отзывов нет</div></div>';
+      return;
+    }
+
+    el.innerHTML = `<div class="reviews-grid" id="reviewsGrid"></div>`;
+    const grid = document.getElementById('reviewsGrid');
+
+    for (const r of reviews) {
+      const stars = '⭐'.repeat(r.productValuation || 0) + '☆'.repeat(5 - (r.productValuation || 0));
+      const isNeg = (r.productValuation || 5) <= 3;
+      const card = document.createElement('div');
+      card.className = 'review-card ' + (isNeg ? 'negative' : 'positive');
+      card.id = 'review-' + r.id;
+
+      card.innerHTML = `
+        <div class="review-header">
+          <div class="review-meta">
+            <div class="review-stars">${stars}</div>
+            <div class="review-product">${r.subjectName || ''} · ${r.userName || 'Покупатель'}</div>
+          </div>
+          <div style="font-size:12px;color:#aaa">${new Date(r.createdDate).toLocaleDateString('ru')}</div>
+        </div>
+        <div class="review-text">${r.text || '(Без текста — только оценка)'}</div>
+        <div class="review-reply-area" id="reply-area-${r.id}">
+          <div class="review-reply-label">🤖 Генерирую ответ...</div>
+          <div class="review-reply-text" id="reply-text-${r.id}"></div>
+        </div>
+        <div class="review-actions">
+          <button class="btn btn-publish" onclick="publishReply('${r.id}', '${cab.wbToken}')">✓ Опубликовать</button>
+          <button class="btn btn-edit" onclick="editReply('${r.id}')">✏ Изменить</button>
+          <button class="btn btn-skip" onclick="skipReview('${r.id}')">Пропустить</button>
+        </div>`;
+      grid.appendChild(card);
+
+      generateReply(r, cab.wbToken);
+    }
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`;
+  }
+}
+
+async function generateReply(review, wbToken) {
+  if (!store.anthropicKey) return;
+  const textEl = document.getElementById('reply-text-' + review.id);
+  const areaEl = document.getElementById('reply-area-' + review.id);
+  if (!textEl) return;
+
+  try {
+    const res = await fetch('/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wb_token: wbToken,
+        anthropic_key: store.anthropicKey,
+        task: `Напиши вежливый ответ продавца на этот отзыв покупателя (только текст ответа, без пояснений):
+Оценка: ${review.productValuation} из 5
+Товар: ${review.subjectName || 'неизвестно'}
+Имя покупателя: ${review.userName || 'Покупатель'}
+Текст отзыва: "${review.text || 'Без текста'}"
+
+Правила WB: только о товаре, без рекламы, без ссылок, вежливо.`
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      areaEl.querySelector('.review-reply-label').textContent = '🤖 Вариант ответа от агента';
+      textEl.textContent = data.result;
+      textEl.contentEditable = 'false';
+    }
+  } catch(e) {
+    areaEl.querySelector('.review-reply-label').textContent = '❌ Не удалось сгенерировать';
+  }
+}
+
+async function publishReply(reviewId, wbToken) {
+  const textEl = document.getElementById('reply-text-' + reviewId);
+  const text = textEl?.textContent?.trim();
+  if (!text) { alert('Нет текста ответа'); return; }
+
+  try {
+    const res = await fetch('/agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        wb_token: wbToken,
+        anthropic_key: store.anthropicKey,
+        task: `Опубликуй ответ на отзыв. ID отзыва: ${reviewId}. Текст ответа: "${text}"`
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const card = document.getElementById('review-' + reviewId);
+      if (card) {
+        card.style.opacity = '0.5';
+        card.querySelector('.review-actions').innerHTML = '<span style="color:#22c55e;font-size:13px">✓ Опубликовано</span>';
+      }
+    } else {
+      alert('Ошибка публикации: ' + data.result);
+    }
+  } catch(e) {
+    alert('Ошибка: ' + e.message);
+  }
+}
+
+function editReply(reviewId) {
+  const el = document.getElementById('reply-text-' + reviewId);
+  if (el) {
+    el.contentEditable = 'true';
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  }
+}
+
+function skipReview(reviewId) {
+  const card = document.getElementById('review-' + reviewId);
+  if (card) card.remove();
+}
+
+// ─── Инициализация ────────────────────────────────────────────────────────────
+
+renderCabinets();
+
+const savedKey = store.anthropicKey;
+if (savedKey) document.getElementById('anthropicKey').value = savedKey;
+</script>
+</body>
+</html>
