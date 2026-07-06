@@ -5,864 +5,620 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WB Agent</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0ede8;color:#1a1a1a;min-height:100vh;display:flex}
+.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:#111;padding:20px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.logo{font-size:17px;font-weight:600;color:#fff;padding:0 8px 16px;border-bottom:1px solid #222;margin-bottom:8px}
+.logo span{color:#7c3aed}
+.section-label{font-size:10px;color:#555;padding:8px 8px 4px;text-transform:uppercase;letter-spacing:.06em}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:7px;cursor:pointer;color:#888;font-size:13px;transition:all .12s}
+.nav-item:hover{background:#1e1e1e;color:#fff}
+.nav-item.active{background:#1e1e1e;color:#fff}
+.nav-item .badge{margin-left:auto;background:#dc2626;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px}
+.cab-item{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;color:#888;font-size:13px;transition:all .12s}
+.cab-item:hover{background:#1e1e1e;color:#fff}
+.cab-item.active{background:#1e1e1e;color:#c4b5fd}
+.cab-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}
+.add-cab{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:7px;cursor:pointer;color:#444;font-size:13px;border:1px dashed #2a2a2a;margin-top:4px;transition:all .12s}
+.add-cab:hover{border-color:#444;color:#888}
+.nav-bottom{margin-top:auto;border-top:1px solid #1e1e1e;padding-top:8px}
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.page{display:none;flex-direction:column;height:100%;overflow:hidden}
+.page.active{display:flex}
+.page-header{background:#fff;border-bottom:1px solid #e8e8e8;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.page-title{font-size:15px;font-weight:500}
+.content{flex:1;overflow-y:auto;padding:20px}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f0ede8;
-    color: #1a1a1a;
-    min-height: 100vh;
-  }
+/* Кнопки */
+.btn{border-radius:7px;padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid;transition:all .12s;white-space:nowrap}
+.btn-primary{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.btn-primary:hover{background:#6d28d9}
+.btn-primary:disabled{background:#c4b5fd;cursor:not-allowed}
+.btn-green{background:#16a34a;color:#fff;border-color:#16a34a}
+.btn-green:hover{background:#15803d}
+.btn-outline{background:#fff;color:#444;border-color:#e0e0e0}
+.btn-outline:hover{border-color:#999}
+.btn-danger{background:#fff;color:#dc2626;border-color:#fca5a5}
+.btn-danger:hover{background:#fef2f2}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
 
-  .sidebar {
-    position: fixed;
-    top: 0; left: 0;
-    width: 260px;
-    height: 100vh;
-    background: #1a1a1a;
-    padding: 24px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-y: auto;
-  }
+/* Чат */
+.chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;max-width:760px}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.avatar.ai{background:#7c3aed;color:#fff}
+.avatar.me{background:#1a1a1a;color:#fff}
+.bubble{background:#fff;border:1px solid #e8e8e8;border-radius:11px;padding:10px 14px;font-size:14px;line-height:1.55;white-space:pre-wrap;max-width:680px}
+.msg.user .bubble{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.steps-log{margin-top:6px;background:#f8f7f5;border-radius:7px;padding:8px 10px;font-size:11px;color:#666;font-family:monospace;line-height:1.7}
+.typing-dots{display:flex;gap:4px;padding:3px 0;align-items:center}
+.dot{width:5px;height:5px;border-radius:50%;background:#bbb;animation:bop .7s infinite}
+.dot:nth-child(2){animation-delay:.14s}
+.dot:nth-child(3){animation-delay:.28s}
+@keyframes bop{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+.quick-bar{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 10px}
+.quick-chip{background:#fff;border:1px solid #e0e0e0;border-radius:16px;padding:5px 12px;font-size:12px;cursor:pointer;color:#444;transition:all .12s}
+.quick-chip:hover{border-color:#7c3aed;color:#7c3aed;background:#faf5ff}
+.input-bar{background:#fff;border-top:1px solid #e8e8e8;padding:12px 20px;display:flex;gap:10px;align-items:flex-end}
+textarea{flex:1;border:1px solid #e0e0e0;border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit;resize:none;outline:none;min-height:40px;max-height:110px;line-height:1.45;transition:border-color .12s}
+textarea:focus{border-color:#7c3aed}
 
-  .logo {
-    font-size: 18px;
-    font-weight: 600;
-    color: #fff;
-    padding: 0 8px 16px;
-    border-bottom: 1px solid #333;
-    margin-bottom: 8px;
-  }
-  .logo span { color: #8b5cf6; }
+/* Отзывы */
+.reviews-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.review-card{background:#fff;border:1px solid #e8e8e8;border-radius:11px;padding:16px;margin-bottom:12px}
+.review-card.star1,.review-card.star2{border-left:3px solid #ef4444}
+.review-card.star3{border-left:3px solid #f59e0b}
+.review-card.star4,.review-card.star5{border-left:3px solid #22c55e}
+.review-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.review-stars{font-size:15px}
+.review-product{font-size:12px;color:#888;margin-top:2px}
+.review-date{font-size:11px;color:#bbb}
+.review-text{font-size:14px;color:#333;line-height:1.5;margin-bottom:10px}
+.review-photos{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.review-photo{width:60px;height:60px;border-radius:6px;object-fit:cover;cursor:pointer;border:1px solid #e8e8e8}
+.reply-box{background:#faf5ff;border:1px solid #e0d4ff;border-radius:8px;padding:11px;margin-bottom:10px}
+.reply-label{font-size:11px;color:#7c3aed;font-weight:500;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.reply-text{font-size:13px;color:#333;line-height:1.5;outline:none;width:100%;min-height:60px;font-family:inherit}
+.reply-text[contenteditable=true]{border-bottom:1px dashed #c4b5fd}
+.review-actions{display:flex;gap:6px;flex-wrap:wrap}
+.status-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:500}
+.pill-ok{background:#dcfce7;color:#16a34a}
+.pill-wait{background:#fef9c3;color:#854d0e}
+.pill-err{background:#fee2e2;color:#dc2626}
 
-  .cabinet-label {
-    font-size: 11px;
-    color: #666;
-    padding: 0 8px;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    margin-top: 8px;
-  }
-
-  .cabinet-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #aaa;
-    font-size: 14px;
-    transition: background .15s;
-  }
-  .cabinet-item:hover { background: #2a2a2a; color: #fff; }
-  .cabinet-item.active { background: #2a2a2a; color: #fff; }
-  .cabinet-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    flex-shrink: 0;
-  }
-  .cabinet-dot.grey { background: #555; }
-
-  .add-cabinet {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #555;
-    font-size: 14px;
-    border: 1px dashed #333;
-    margin-top: 4px;
-    transition: all .15s;
-  }
-  .add-cabinet:hover { border-color: #555; color: #aaa; }
-
-  .nav-section {
-    margin-top: auto;
-    border-top: 1px solid #333;
-    padding-top: 12px;
-  }
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #aaa;
-    font-size: 14px;
-    transition: background .15s;
-  }
-  .nav-item:hover { background: #2a2a2a; color: #fff; }
-  .nav-item.active { background: #2a2a2a; color: #fff; }
-
-  .main {
-    margin-left: 260px;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-  }
-
-  .topbar {
-    background: #fff;
-    border-bottom: 1px solid #e5e5e5;
-    padding: 0 24px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .topbar-title { font-size: 16px; font-weight: 500; }
-  .topbar-right { display: flex; align-items: center; gap: 12px; }
-
-  .badge {
-    background: #fee2e2;
-    color: #dc2626;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 20px;
-  }
-  .badge.green { background: #dcfce7; color: #16a34a; }
-  .badge.purple { background: #ede9fe; color: #7c3aed; }
-
-  .content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  /* ─── Чат ──────────────────────────────────────────────────────────────── */
-
-  .chat-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow: hidden;
-  }
-
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .msg {
-    display: flex;
-    gap: 12px;
-    max-width: 720px;
-  }
-  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
-
-  .msg-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #1a1a1a;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .msg-avatar.agent { background: #7c3aed; }
-
-  .msg-bubble {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 12px;
-    padding: 12px 16px;
-    font-size: 14px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-  }
-  .msg.user .msg-bubble {
-    background: #1a1a1a;
-    color: #fff;
-    border-color: #1a1a1a;
-  }
-
-  .msg-steps {
-    margin-top: 8px;
-    padding: 8px 12px;
-    background: #f8f7f5;
-    border-radius: 8px;
-    font-size: 12px;
-    color: #666;
-    font-family: monospace;
-    line-height: 1.8;
-  }
-
-  .typing {
-    display: flex;
-    gap: 4px;
-    padding: 4px 0;
-    align-items: center;
-  }
-  .typing-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: #aaa;
-    animation: bounce .8s infinite;
-  }
-  .typing-dot:nth-child(2) { animation-delay: .15s; }
-  .typing-dot:nth-child(3) { animation-delay: .3s; }
-  @keyframes bounce {
-    0%,80%,100% { transform: translateY(0); }
-    40% { transform: translateY(-6px); }
-  }
-
-  .chat-input-wrap {
-    background: #fff;
-    border-top: 1px solid #e5e5e5;
-    padding: 16px 24px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
-  }
-
-  .quick-tasks {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 0 24px 12px;
-  }
-  .quick-btn {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 13px;
-    cursor: pointer;
-    color: #444;
-    transition: all .15s;
-    white-space: nowrap;
-  }
-  .quick-btn:hover { border-color: #7c3aed; color: #7c3aed; background: #faf5ff; }
-
-  textarea {
-    flex: 1;
-    border: 1px solid #e5e5e5;
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 14px;
-    font-family: inherit;
-    resize: none;
-    outline: none;
-    min-height: 44px;
-    max-height: 120px;
-    line-height: 1.5;
-    transition: border-color .15s;
-  }
-  textarea:focus { border-color: #7c3aed; }
-
-  .send-btn {
-    background: #7c3aed;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background .15s;
-    height: 44px;
-    flex-shrink: 0;
-  }
-  .send-btn:hover { background: #6d28d9; }
-  .send-btn:disabled { background: #c4b5fd; cursor: not-allowed; }
-
-  /* ─── Отзывы ──────────────────────────────────────────────────────────── */
-
-  .reviews-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .review-card {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 12px;
-    padding: 16px;
-  }
-  .review-card.negative { border-left: 3px solid #ef4444; }
-  .review-card.positive { border-left: 3px solid #22c55e; }
-
-  .review-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-  }
-  .review-meta { display: flex; flex-direction: column; gap: 2px; }
-  .review-stars { font-size: 16px; }
-  .review-product { font-size: 12px; color: #888; }
-  .review-text { font-size: 14px; color: #333; line-height: 1.5; margin-bottom: 12px; }
-
-  .review-reply-area {
-    background: #faf5ff;
-    border: 1px solid #ddd6fe;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 10px;
-  }
-  .review-reply-label {
-    font-size: 11px;
-    color: #7c3aed;
-    font-weight: 500;
-    margin-bottom: 6px;
-  }
-  .review-reply-text {
-    font-size: 13px;
-    color: #333;
-    line-height: 1.5;
-    white-space: pre-wrap;
-  }
-
-  .review-actions { display: flex; gap: 8px; }
-  .btn { border-radius: 8px; padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid; transition: all .15s; }
-  .btn-publish { background: #22c55e; color: #fff; border-color: #22c55e; }
-  .btn-publish:hover { background: #16a34a; }
-  .btn-edit { background: #fff; color: #444; border-color: #e5e5e5; }
-  .btn-edit:hover { border-color: #999; }
-  .btn-skip { background: #fff; color: #888; border-color: #e5e5e5; }
-  .btn-skip:hover { color: #ef4444; border-color: #ef4444; }
-  .btn-sm { padding: 5px 12px; font-size: 12px; }
-  .btn-purple { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-  .btn-purple:hover { background: #6d28d9; }
-
-  /* ─── Настройки ────────────────────────────────────────────────────────── */
-
-  .settings-card {
-    background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 12px;
-    padding: 20px;
-    max-width: 560px;
-  }
-  .settings-title { font-size: 16px; font-weight: 500; margin-bottom: 16px; }
-  .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-  .field-label { font-size: 13px; color: #555; font-weight: 500; }
-  .field-input {
-    border: 1px solid #e5e5e5;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 14px;
-    outline: none;
-    font-family: monospace;
-    transition: border-color .15s;
-  }
-  .field-input:focus { border-color: #7c3aed; }
-  .field-hint { font-size: 12px; color: #aaa; }
-
-  .page { display: none; flex-direction: column; height: 100%; }
-  .page.active { display: flex; }
-
-  .page-header {
-    background: #fff;
-    border-bottom: 1px solid #e5e5e5;
-    padding: 0 24px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .page-title { font-size: 16px; font-weight: 500; }
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 48px;
-    color: #aaa;
-    text-align: center;
-  }
-  .empty-icon { font-size: 40px; }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .status-pill.ok { background: #dcfce7; color: #16a34a; }
-  .status-pill.err { background: #fee2e2; color: #dc2626; }
+/* Настройки */
+.settings-card{background:#fff;border:1px solid #e8e8e8;border-radius:11px;padding:18px;max-width:520px;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:500;margin-bottom:14px;color:#1a1a1a}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:12px;color:#555;font-weight:500}
+.field input{border:1px solid #e0e0e0;border-radius:7px;padding:7px 10px;font-size:13px;font-family:monospace;outline:none;transition:border-color .12s}
+.field input:focus{border-color:#7c3aed}
+.field-hint{font-size:11px;color:#aaa}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px;color:#bbb;text-align:center}
+.empty-icon{font-size:36px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.agent-status{font-size:12px;padding:3px 9px;border-radius:12px;font-weight:500}
+.status-ready{background:#dcfce7;color:#16a34a}
+.status-working{background:#fef9c3;color:#854d0e}
+.divider{height:1px;background:#f0f0f0;margin:12px 0}
 </style>
 </head>
 <body>
 
-<div class="sidebar">
+<nav class="sidebar">
   <div class="logo">WB <span>Agent</span></div>
 
-  <div class="cabinet-label">Кабинеты</div>
-  <div id="cabinetList"></div>
-  <div class="add-cabinet" onclick="showPage('settings')">
-    + Добавить кабинет
-  </div>
+  <div class="section-label">Кабинеты</div>
+  <div id="cabList"></div>
+  <div class="add-cab" onclick="showPage('settings')">＋ Добавить кабинет</div>
 
-  <div class="nav-section">
-    <div class="nav-item active" id="nav-chat" onclick="showPage('chat')">
-      💬 Агент (чат)
-    </div>
-    <div class="nav-item" id="nav-reviews" onclick="showPage('reviews'); loadReviews();">
-      ⭐ Отзывы
-    </div>
-    <div class="nav-item" id="nav-settings" onclick="showPage('settings')">
-      ⚙️ Настройки
-    </div>
+  <div class="section-label" style="margin-top:8px">Разделы</div>
+  <div class="nav-item active" id="nav-chat" onclick="showPage('chat')">💬 Агент (чат)</div>
+  <div class="nav-item" id="nav-reviews" onclick="showPage('reviews');loadReviews()">⭐ Отзывы <span class="badge" id="reviewBadge" style="display:none">0</span></div>
+  <div class="nav-item" id="nav-questions" onclick="showPage('questions');loadQuestions()">❓ Вопросы</div>
+  <div class="nav-item" id="nav-orders" onclick="showPage('orders');loadOrders()">📦 Заказы</div>
+  <div class="nav-item" id="nav-goods" onclick="showPage('goods');loadGoods()">🏷 Товары и цены</div>
+  <div class="nav-item" id="nav-supplies" onclick="showPage('supplies')">🚚 Поставки</div>
+  <div class="nav-item" id="nav-adverts" onclick="showPage('adverts')">📣 Реклама</div>
+
+  <div class="nav-bottom">
+    <div class="nav-item" id="nav-settings" onclick="showPage('settings')">⚙️ Настройки</div>
   </div>
-</div>
+</nav>
 
 <div class="main">
 
-  <!-- ─── ЧАТ ─────────────────────────────────────────────────────────── -->
-  <div class="page active" id="page-chat">
-    <div class="page-header">
-      <span class="page-title">Агент</span>
-      <span id="agentStatus" class="status-pill ok">● Готов</span>
-    </div>
-
-    <div class="chat-messages" id="chatMessages">
-      <div class="msg">
-        <div class="msg-avatar agent">AI</div>
-        <div>
-          <div class="msg-bubble">Привет! Я агент управления твоим магазином на Wildberries.
-
-Могу помочь:
-• Ответить на отзывы покупателей
-• Поднять или снизить цены на товары
-• Проверить новые заказы
-• Посмотреть статистику
-
-Добавь кабинет в настройках и пиши задание — выполню!</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="quick-tasks" id="quickTasks">
-      <button class="quick-btn" onclick="sendQuick('Покажи новые отзывы без ответа')">📬 Новые отзывы</button>
-      <button class="quick-btn" onclick="sendQuick('Покажи новые заказы')">📦 Новые заказы</button>
-      <button class="quick-btn" onclick="sendQuick('Покажи все товары с ценами')">🏷 Цены товаров</button>
-      <button class="quick-btn" onclick="sendQuick('Ответь на все положительные отзывы (4-5 звёзд) вежливо')">✨ Ответить на позитив</button>
-    </div>
-
-    <div class="chat-input-wrap">
-      <textarea id="taskInput" placeholder="Напиши задание агенту... Например: подними цены на все товары на 5%" rows="1"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTask()}"
-        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
-      <button class="send-btn" id="sendBtn" onclick="sendTask()">Отправить</button>
-    </div>
+<!-- ── ЧАТ ───────────────────────────────────────────────────────────────── -->
+<div class="page active" id="page-chat">
+  <div class="page-header">
+    <span class="page-title">Агент</span>
+    <span class="agent-status status-ready" id="agentStatus">● Готов</span>
   </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="msg">
+      <div class="avatar ai">AI</div>
+      <div>
+        <div class="bubble">Привет! Я управляю твоим магазином на Wildberries.
 
-  <!-- ─── ОТЗЫВЫ ───────────────────────────────────────────────────────── -->
-  <div class="page" id="page-reviews">
-    <div class="page-header">
-      <span class="page-title">Отзывы</span>
-      <button class="btn btn-purple btn-sm" onclick="loadReviews()">Обновить</button>
-    </div>
-    <div class="content" id="reviewsContent">
-      <div class="empty-state">
-        <div class="empty-icon">⭐</div>
-        <div>Загрузка отзывов...</div>
+Умею всё что доступно через WB API:
+• Отзывы и вопросы покупателей
+• Цены, скидки на товары
+• Заказы FBS и поставки
+• Реклама — ставки, бюджеты, старт/пауза
+• Остатки на складах
+• Карточки товаров
+• Аналитика продаж
+
+Добавь кабинет в настройках и пиши любую задачу!</div>
       </div>
     </div>
   </div>
-
-  <!-- ─── НАСТРОЙКИ ─────────────────────────────────────────────────────── -->
-  <div class="page" id="page-settings">
-    <div class="page-header">
-      <span class="page-title">Настройки</span>
-    </div>
-    <div class="content">
-
-      <div class="settings-card">
-        <div class="settings-title">Добавить кабинет WB</div>
-
-        <div class="field-group">
-          <div class="field-label">Название кабинета</div>
-          <input class="field-input" id="cabName" type="text" placeholder="Мой магазин / Клиент Иванов">
-        </div>
-
-        <div class="field-group">
-          <div class="field-label">WB токен (Отзывы и вопросы)</div>
-          <input class="field-input" id="cabWbToken" type="password" placeholder="eyJhbGci...">
-          <div class="field-hint">ЛК WB → Настройки → Доступ к API → Общение с покупателями (Чтение + Запись)</div>
-        </div>
-
-        <div class="field-group">
-          <div class="field-label">WB токен (Цены и скидки)</div>
-          <input class="field-input" id="cabPriceToken" type="password" placeholder="eyJhbGci...">
-          <div class="field-hint">ЛК WB → Настройки → Доступ к API → Цены и скидки</div>
-        </div>
-
-        <button class="btn btn-purple" onclick="addCabinet()" style="width:100%;margin-top:4px">Добавить кабинет</button>
-      </div>
-
-      <div class="settings-card">
-        <div class="settings-title">Anthropic API ключ</div>
-        <div class="field-group">
-          <div class="field-label">Ключ</div>
-          <input class="field-input" id="anthropicKey" type="password" placeholder="sk-ant-...">
-          <div class="field-hint">console.anthropic.com → API Keys → Create Key</div>
-        </div>
-        <button class="btn btn-edit" onclick="saveAnthropicKey()">Сохранить</button>
-      </div>
-
-    </div>
+  <div class="quick-bar">
+    <span class="quick-chip" onclick="sendQuick('Покажи новые отзывы без ответа')">📬 Новые отзывы</span>
+    <span class="quick-chip" onclick="sendQuick('Покажи новые заказы FBS')">📦 Новые заказы</span>
+    <span class="quick-chip" onclick="sendQuick('Покажи все товары с ценами')">🏷 Цены товаров</span>
+    <span class="quick-chip" onclick="sendQuick('Покажи активные рекламные кампании')">📣 Реклама</span>
+    <span class="quick-chip" onclick="sendQuick('Покажи мои склады')">🏭 Склады</span>
+    <span class="quick-chip" onclick="sendQuick('Покажи вопросы покупателей без ответа')">❓ Вопросы</span>
   </div>
-
+  <div class="input-bar">
+    <textarea id="taskInput" placeholder="Напиши задание агенту... Например: подними цены на все товары на 3%" rows="1"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTask()}"
+      oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+    <button class="btn btn-primary" id="sendBtn" onclick="sendTask()">Отправить</button>
+  </div>
 </div>
 
-<script>
-// ─── Хранилище ────────────────────────────────────────────────────────────────
+<!-- ── ОТЗЫВЫ ────────────────────────────────────────────────────────────── -->
+<div class="page" id="page-reviews">
+  <div class="page-header">
+    <span class="page-title">Отзывы</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" id="genAllBtn" onclick="generateAllReplies()">✨ Сгенерировать ответы на все</button>
+      <button class="btn btn-outline btn-sm" onclick="loadReviews()">Обновить</button>
+    </div>
+  </div>
+  <div class="content" id="reviewsContent">
+    <div class="empty"><div class="empty-icon">⭐</div><div>Загрузка...</div></div>
+  </div>
+</div>
 
-const store = {
-  get cabinets() { return JSON.parse(localStorage.getItem('cabinets') || '[]'); },
-  set cabinets(v) { localStorage.setItem('cabinets', JSON.stringify(v)); },
-  get activeCab() { return parseInt(localStorage.getItem('activeCab') || '0'); },
-  set activeCab(v) { localStorage.setItem('activeCab', v); },
-  get anthropicKey() { return localStorage.getItem('anthropicKey') || ''; },
-  set anthropicKey(v) { localStorage.setItem('anthropicKey', v); },
+<!-- ── ВОПРОСЫ ───────────────────────────────────────────────────────────── -->
+<div class="page" id="page-questions">
+  <div class="page-header">
+    <span class="page-title">Вопросы покупателей</span>
+    <button class="btn btn-outline btn-sm" onclick="loadQuestions()">Обновить</button>
+  </div>
+  <div class="content" id="questionsContent">
+    <div class="empty"><div class="empty-icon">❓</div><div>Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ── ЗАКАЗЫ ────────────────────────────────────────────────────────────── -->
+<div class="page" id="page-orders">
+  <div class="page-header">
+    <span class="page-title">Заказы FBS</span>
+    <button class="btn btn-outline btn-sm" onclick="loadOrders()">Обновить</button>
+  </div>
+  <div class="content" id="ordersContent">
+    <div class="empty"><div class="empty-icon">📦</div><div>Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ── ТОВАРЫ ────────────────────────────────────────────────────────────── -->
+<div class="page" id="page-goods">
+  <div class="page-header">
+    <span class="page-title">Товары и цены</span>
+    <button class="btn btn-outline btn-sm" onclick="loadGoods()">Обновить</button>
+  </div>
+  <div class="content" id="goodsContent">
+    <div class="empty"><div class="empty-icon">🏷</div><div>Загрузка...</div></div>
+  </div>
+</div>
+
+<!-- ── ПОСТАВКИ ───────────────────────────────────────────────────────────── -->
+<div class="page" id="page-supplies">
+  <div class="page-header">
+    <span class="page-title">Поставки</span>
+  </div>
+  <div class="content">
+    <div class="empty">
+      <div class="empty-icon">🚚</div>
+      <div>Управляй поставками через агента</div>
+      <button class="btn btn-primary" onclick="showPage('chat');document.getElementById('taskInput').value='Покажи мои поставки'">Открыть агента</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── РЕКЛАМА ───────────────────────────────────────────────────────────── -->
+<div class="page" id="page-adverts">
+  <div class="page-header">
+    <span class="page-title">Реклама</span>
+  </div>
+  <div class="content">
+    <div class="empty">
+      <div class="empty-icon">📣</div>
+      <div>Управляй рекламой через агента</div>
+      <button class="btn btn-primary" onclick="showPage('chat');document.getElementById('taskInput').value='Покажи активные рекламные кампании'">Открыть агента</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── НАСТРОЙКИ ─────────────────────────────────────────────────────────── -->
+<div class="page" id="page-settings">
+  <div class="page-header"><span class="page-title">Настройки</span></div>
+  <div class="content">
+
+    <div class="settings-card">
+      <div class="card-title">Anthropic API ключ</div>
+      <div class="field">
+        <label>Ключ (sk-ant-...)</label>
+        <input type="password" id="anthropicKey" placeholder="sk-ant-api03-...">
+        <span class="field-hint">console.anthropic.com → API Keys → Create Key. Нужно пополнить баланс минимум $5</span>
+      </div>
+      <button class="btn btn-primary" onclick="saveAnthropicKey()">Сохранить</button>
+    </div>
+
+    <div class="settings-card">
+      <div class="card-title">Добавить кабинет WB</div>
+      <div class="field">
+        <label>Название</label>
+        <input type="text" id="cabName" placeholder="Мой магазин / Клиент Иванов">
+      </div>
+      <div class="field">
+        <label>Токен «Отзывы и вопросы» (Чтение + Запись)</label>
+        <input type="password" id="cabTokenFeedback" placeholder="eyJhbGci...">
+        <span class="field-hint">ЛК WB → Настройки → Доступ к API → Общение с покупателями</span>
+      </div>
+      <div class="field">
+        <label>Токен «Цены и скидки»</label>
+        <input type="password" id="cabTokenPrices" placeholder="eyJhbGci...">
+      </div>
+      <div class="field">
+        <label>Токен «Статистика»</label>
+        <input type="password" id="cabTokenAnalytics" placeholder="eyJhbGci...">
+      </div>
+      <div class="field">
+        <label>Токен «Поставки» (Маркетплейс)</label>
+        <input type="password" id="cabTokenSupplies" placeholder="eyJhbGci...">
+      </div>
+      <div class="field">
+        <label>Токен «Реклама»</label>
+        <input type="password" id="cabTokenAdvert" placeholder="eyJhbGci...">
+      </div>
+      <button class="btn btn-primary" onclick="addCabinet()" style="width:100%">Добавить кабинет</button>
+    </div>
+
+    <div class="settings-card" id="cabListSettings"></div>
+
+  </div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// ── Хранилище ─────────────────────────────────────────────────────────────────
+const S = {
+  get cabs(){return JSON.parse(localStorage.getItem('cabs')||'[]')},
+  set cabs(v){localStorage.setItem('cabs',JSON.stringify(v))},
+  get activeCab(){return parseInt(localStorage.getItem('activeCab')||'0')},
+  set activeCab(v){localStorage.setItem('activeCab',v)},
+  get anthropicKey(){return localStorage.getItem('anthropicKey')||''},
+  set anthropicKey(v){localStorage.setItem('anthropicKey',v)},
 };
 
-// ─── Навигация ────────────────────────────────────────────────────────────────
+function cab(){return S.cabs[S.activeCab]||null}
+function cabToken(){const c=cab();return c?c.tokenFeedback||c.token||'':''}
 
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  const nav = document.getElementById('nav-' + name);
-  if (nav) nav.classList.add('active');
+// ── Навигация ─────────────────────────────────────────────────────────────────
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const nav=document.getElementById('nav-'+name);
+  if(nav)nav.classList.add('active');
 }
 
-// ─── Кабинеты ─────────────────────────────────────────────────────────────────
-
-function renderCabinets() {
-  const list = document.getElementById('cabinetList');
-  const cabs = store.cabinets;
-  list.innerHTML = '';
-  cabs.forEach((cab, i) => {
-    const el = document.createElement('div');
-    el.className = 'cabinet-item' + (i === store.activeCab ? ' active' : '');
-    el.innerHTML = `<div class="cabinet-dot"></div><span>${cab.name}</span>`;
-    el.onclick = () => { store.activeCab = i; renderCabinets(); };
+// ── Кабинеты ──────────────────────────────────────────────────────────────────
+function renderCabs(){
+  const list=document.getElementById('cabList');
+  const set=document.getElementById('cabListSettings');
+  const cabs=S.cabs;
+  list.innerHTML='';
+  if(set)set.innerHTML=cabs.length?'<div class="card-title">Подключённые кабинеты</div>':'';
+  cabs.forEach((c,i)=>{
+    const el=document.createElement('div');
+    el.className='cab-item'+(i===S.activeCab?' active':'');
+    el.innerHTML=`<div class="cab-dot"></div><span>${c.name}</span>`;
+    el.onclick=()=>{S.activeCab=i;renderCabs()};
     list.appendChild(el);
+    if(set){
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px';
+      row.innerHTML=`<span>${c.name}</span><button class="btn btn-danger btn-xs" onclick="removeCab(${i})">Удалить</button>`;
+      set.appendChild(row);
+    }
   });
 }
 
-function addCabinet() {
-  const name = document.getElementById('cabName').value.trim();
-  const wbToken = document.getElementById('cabWbToken').value.trim();
-  const priceToken = document.getElementById('cabPriceToken').value.trim();
-  if (!name || !wbToken) { alert('Заполни название и токен отзывов'); return; }
-  const cabs = store.cabinets;
-  cabs.push({ name, wbToken, priceToken });
-  store.cabinets = cabs;
-  store.activeCab = cabs.length - 1;
-  document.getElementById('cabName').value = '';
-  document.getElementById('cabWbToken').value = '';
-  document.getElementById('cabPriceToken').value = '';
-  renderCabinets();
-  addSystemMsg(`✅ Кабинет "${name}" добавлен`);
+function addCabinet(){
+  const name=document.getElementById('cabName').value.trim();
+  const tokenFeedback=document.getElementById('cabTokenFeedback').value.trim();
+  if(!name||!tokenFeedback){alert('Введи название и токен отзывов');return}
+  const cabs=S.cabs;
+  cabs.push({name,tokenFeedback,
+    tokenPrices:document.getElementById('cabTokenPrices').value.trim(),
+    tokenAnalytics:document.getElementById('cabTokenAnalytics').value.trim(),
+    tokenSupplies:document.getElementById('cabTokenSupplies').value.trim(),
+    tokenAdvert:document.getElementById('cabTokenAdvert').value.trim()});
+  S.cabs=cabs; S.activeCab=cabs.length-1;
+  ['cabName','cabTokenFeedback','cabTokenPrices','cabTokenAnalytics','cabTokenSupplies','cabTokenAdvert']
+    .forEach(id=>document.getElementById(id).value='');
+  renderCabs();
+  sysMsg(`✅ Кабинет "${name}" добавлен`);
   showPage('chat');
 }
 
-function saveAnthropicKey() {
-  const key = document.getElementById('anthropicKey').value.trim();
-  if (!key) { alert('Введи ключ'); return; }
-  store.anthropicKey = key;
-  alert('Ключ сохранён');
+function removeCab(i){
+  if(!confirm('Удалить кабинет?'))return;
+  const cabs=S.cabs; cabs.splice(i,1); S.cabs=cabs;
+  if(S.activeCab>=cabs.length)S.activeCab=Math.max(0,cabs.length-1);
+  renderCabs();
 }
 
-function getActiveCabinet() {
-  const cabs = store.cabinets;
-  return cabs[store.activeCab] || null;
+function saveAnthropicKey(){
+  const k=document.getElementById('anthropicKey').value.trim();
+  if(!k){alert('Введи ключ');return}
+  S.anthropicKey=k; alert('Ключ сохранён ✅');
 }
 
-// ─── Чат ─────────────────────────────────────────────────────────────────────
+// ── Чат ───────────────────────────────────────────────────────────────────────
+function addMsg(role,text,steps){
+  const wrap=document.getElementById('chatMessages');
+  const div=document.createElement('div');
+  div.className='msg'+(role==='user'?' user':'');
+  const av=role==='user'?'<div class="avatar me">Я</div>':'<div class="avatar ai">AI</div>';
+  let st='';
+  if(steps&&steps.length)st=`<div class="steps-log">${steps.join('\n')}</div>`;
+  div.innerHTML=`${av}<div><div class="bubble">${text}</div>${st}</div>`;
+  wrap.appendChild(div); wrap.scrollTop=wrap.scrollHeight;
+}
 
-function addMsg(role, text, steps) {
-  const wrap = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = 'msg' + (role === 'user' ? ' user' : '');
-  const avatar = role === 'user' ? 'Я' : 'AI';
-  const cls = role === 'user' ? '' : ' agent';
-  let stepsHtml = '';
-  if (steps && steps.length) {
-    stepsHtml = `<div class="msg-steps">${steps.join('\n')}</div>`;
+function addTyping(){
+  const wrap=document.getElementById('chatMessages');
+  const div=document.createElement('div');
+  div.className='msg'; div.id='typingMsg';
+  div.innerHTML='<div class="avatar ai">AI</div><div class="bubble"><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>';
+  wrap.appendChild(div); wrap.scrollTop=wrap.scrollHeight;
+}
+
+function removeTyping(){const el=document.getElementById('typingMsg');if(el)el.remove()}
+
+function sysMsg(t){
+  const wrap=document.getElementById('chatMessages');
+  const d=document.createElement('div');
+  d.style.cssText='text-align:center;font-size:12px;color:#aaa;padding:3px 0';
+  d.textContent=t; wrap.appendChild(d); wrap.scrollTop=wrap.scrollHeight;
+}
+
+function setAgentWorking(v){
+  const el=document.getElementById('agentStatus');
+  const btn=document.getElementById('sendBtn');
+  if(v){el.textContent='● Работает';el.className='agent-status status-working';btn.disabled=true}
+  else{el.textContent='● Готов';el.className='agent-status status-ready';btn.disabled=false}
+}
+
+async function sendTask(){
+  const inp=document.getElementById('taskInput');
+  const task=inp.value.trim();
+  if(!task)return;
+  const c=cab();
+  if(!c){sysMsg('⚠️ Сначала добавь кабинет в настройках');showPage('settings');return}
+  if(!S.anthropicKey){sysMsg('⚠️ Добавь Anthropic API ключ в настройках');showPage('settings');return}
+  inp.value=''; inp.style.height='auto';
+  addMsg('user',task); addTyping(); setAgentWorking(true);
+  try{
+    const res=await fetch('/agent',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wb_token:c.tokenFeedback,anthropic_key:S.anthropicKey,task})});
+    const data=await res.json(); removeTyping();
+    addMsg('agent',data.success?data.result:'❌ '+data.result,data.steps);
+  }catch(e){removeTyping();addMsg('agent','❌ Ошибка: '+e.message)}
+  setAgentWorking(false);
+}
+
+function sendQuick(t){document.getElementById('taskInput').value=t;sendTask()}
+
+// ── Отзывы ────────────────────────────────────────────────────────────────────
+let reviewsData=[];
+
+async function loadReviews(){
+  const el=document.getElementById('reviewsContent');
+  const token=cabToken();
+  if(!token){
+    el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет в настройках</div></div>';return;
   }
-  div.innerHTML = `
-    <div class="msg-avatar${cls}">${avatar}</div>
-    <div>
-      <div class="msg-bubble">${text}</div>
-      ${stepsHtml}
-    </div>`;
-  wrap.appendChild(div);
-  wrap.scrollTop = wrap.scrollHeight;
-  return div;
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю отзывы...</div></div>';
+  try{
+    const res=await fetch(`/reviews?wb_token=${encodeURIComponent(token)}&take=50`);
+    const data=await res.json();
+    reviewsData=data?.data?.feedbacks||[];
+    if(!reviewsData.length){
+      el.innerHTML='<div class="empty"><div class="empty-icon">🎉</div><div>Новых отзывов нет</div></div>';
+      document.getElementById('reviewBadge').style.display='none'; return;
+    }
+    const badge=document.getElementById('reviewBadge');
+    badge.textContent=reviewsData.length; badge.style.display='';
+    renderReviews();
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`}
 }
 
-function addTyping() {
-  const wrap = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = 'msg';
-  div.id = 'typingMsg';
-  div.innerHTML = `
-    <div class="msg-avatar agent">AI</div>
-    <div class="msg-bubble">
-      <div class="typing">
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
-        <div class="typing-dot"></div>
+function renderReviews(){
+  const el=document.getElementById('reviewsContent');
+  el.innerHTML='<div class="reviews-toolbar"><span style="font-size:13px;color:#666">Отзывов: <b>'+reviewsData.length+'</b></span></div>';
+  const toolbar=el.querySelector('.reviews-toolbar');
+
+  reviewsData.forEach((r,idx)=>{
+    const stars=r.productValuation||0;
+    const card=document.createElement('div');
+    card.className=`review-card star${stars}`; card.id=`rc-${r.id}`;
+    const photos=(r.photoLinks||[]).map(p=>`<img class="review-photo" src="${p}" alt="фото" onclick="window.open('${p}')">`).join('');
+    const photoBlock=photos?`<div class="review-photos">${photos}</div>`:'';
+    const starsStr='⭐'.repeat(stars)+'☆'.repeat(5-stars);
+    const date=r.createdDate?(new Date(r.createdDate)).toLocaleDateString('ru'):'';
+    card.innerHTML=`
+      <div class="review-header">
+        <div>
+          <div class="review-stars">${starsStr}</div>
+          <div class="review-product">${r.subjectName||'—'} · ${r.userName||'Покупатель'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="review-date">${date}</span>
+          <span class="status-pill pill-wait" id="rs-${r.id}">Ожидает</span>
+        </div>
       </div>
-    </div>`;
-  wrap.appendChild(div);
-  wrap.scrollTop = wrap.scrollHeight;
+      <div class="review-text">${r.text||'<i style="color:#bbb">Без текста — только оценка</i>'}</div>
+      ${photoBlock}
+      <div class="reply-box" id="rb-${r.id}">
+        <div class="reply-label" id="rl-${r.id}">💬 Ответ продавца</div>
+        <div class="reply-text" id="rt-${r.id}" contenteditable="false"></div>
+      </div>
+      <div class="review-actions">
+        <button class="btn btn-outline btn-sm" onclick="generateSingleReply('${r.id}',${stars},'${(r.subjectName||'').replace(/'/g,"\\'")}','${(r.text||'').replace(/'/g,"\\'").replace(/\n/g,' ').substring(0,200)}','${(r.userName||'Покупатель').replace(/'/g,"\\'")}')">✨ Сгенерировать ответ</button>
+        <button class="btn btn-outline btn-sm" onclick="editReply('${r.id}')">✏ Редактировать</button>
+        <button class="btn btn-green btn-sm" onclick="publishReply('${r.id}')">✓ Опубликовать</button>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('rc-${r.id}').remove()">Пропустить</button>
+      </div>`;
+    el.appendChild(card);
+  });
 }
 
-function removeTyping() {
-  const el = document.getElementById('typingMsg');
-  if (el) el.remove();
+async function generateSingleReply(reviewId,stars,product,text,userName){
+  if(!S.anthropicKey){alert('Добавь Anthropic API ключ в настройках');return}
+  const label=document.getElementById('rl-'+reviewId);
+  const textEl=document.getElementById('rt-'+reviewId);
+  label.innerHTML='<div class="spinner"></div> Генерирую...';
+  try{
+    const res=await fetch('/reviews/generate-reply',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anthropic_key:S.anthropicKey,review_id:reviewId,
+        stars,product,text,user_name:userName})});
+    const data=await res.json();
+    if(data.success){
+      textEl.textContent=data.reply;
+      label.textContent='🤖 Ответ от агента';
+    }else{label.textContent='❌ Ошибка генерации'}
+  }catch(e){label.textContent='❌ '+e.message}
 }
 
-function addSystemMsg(text) {
-  const wrap = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.style.cssText = 'text-align:center;font-size:12px;color:#aaa;padding:4px 0';
-  div.textContent = text;
-  wrap.appendChild(div);
-  wrap.scrollTop = wrap.scrollHeight;
-}
+async function generateAllReplies(){
+  if(!S.anthropicKey){alert('Добавь Anthropic API ключ в настройках');return}
+  if(!reviewsData.length){alert('Нет отзывов для генерации');return}
+  const btn=document.getElementById('genAllBtn');
+  btn.disabled=true; btn.textContent='⏳ Генерирую...';
 
-async function sendTask() {
-  const input = document.getElementById('taskInput');
-  const task = input.value.trim();
-  if (!task) return;
+  const reviews=reviewsData.map(r=>({
+    id:r.id, stars:r.productValuation||5,
+    product:r.subjectName||'—', text:r.text||'',
+    userName:r.userName||'Покупатель'
+  }));
 
-  const cab = getActiveCabinet();
-  if (!cab) {
-    addSystemMsg('⚠️ Сначала добавь кабинет в настройках');
-    showPage('settings');
-    return;
-  }
-  if (!store.anthropicKey) {
-    addSystemMsg('⚠️ Добавь Anthropic API ключ в настройках');
-    showPage('settings');
-    return;
-  }
-
-  input.value = '';
-  input.style.height = 'auto';
-  document.getElementById('sendBtn').disabled = true;
-  document.getElementById('agentStatus').textContent = '● Работает';
-  document.getElementById('agentStatus').className = 'status-pill';
-  document.getElementById('agentStatus').style.background = '#fef9c3';
-  document.getElementById('agentStatus').style.color = '#854d0e';
-
-  addMsg('user', task);
-  addTyping();
-
-  try {
-    const res = await fetch('/agent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        wb_token: cab.wbToken,
-        anthropic_key: store.anthropicKey,
-        task
-      })
-    });
-    const data = await res.json();
-    removeTyping();
-
-    if (data.success) {
-      addMsg('agent', data.result, data.steps);
-    } else {
-      addMsg('agent', '❌ ' + data.result, data.steps);
+  try{
+    const res=await fetch('/reviews/generate-all',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({anthropic_key:S.anthropicKey,reviews})});
+    const data=await res.json();
+    if(data.success){
+      data.results.forEach(r=>{
+        const textEl=document.getElementById('rt-'+r.review_id);
+        const label=document.getElementById('rl-'+r.review_id);
+        if(textEl){textEl.textContent=r.reply}
+        if(label){label.textContent='🤖 Ответ от агента'}
+      });
     }
-  } catch (e) {
-    removeTyping();
-    addMsg('agent', '❌ Ошибка соединения: ' + e.message);
-  }
-
-  document.getElementById('sendBtn').disabled = false;
-  document.getElementById('agentStatus').textContent = '● Готов';
-  document.getElementById('agentStatus').className = 'status-pill ok';
-  document.getElementById('agentStatus').style = '';
+  }catch(e){alert('Ошибка: '+e.message)}
+  btn.disabled=false; btn.textContent='✨ Сгенерировать ответы на все';
 }
 
-function sendQuick(text) {
-  document.getElementById('taskInput').value = text;
-  sendTask();
+function editReply(reviewId){
+  const el=document.getElementById('rt-'+reviewId);
+  if(el){el.contentEditable='true';el.focus()}
 }
 
-// ─── Отзывы ──────────────────────────────────────────────────────────────────
-
-async function loadReviews() {
-  const cab = getActiveCabinet();
-  const el = document.getElementById('reviewsContent');
-  if (!cab) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔑</div><div>Добавь кабинет в настройках</div></div>';
-    return;
-  }
-  el.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div>Загружаю отзывы...</div></div>';
-
-  try {
-    const res = await fetch(`/reviews?wb_token=${encodeURIComponent(cab.wbToken)}`);
-    const data = await res.json();
-    const reviews = data?.data?.feedbacks || [];
-
-    if (!reviews.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><div>Новых отзывов нет</div></div>';
-      return;
-    }
-
-    el.innerHTML = `<div class="reviews-grid" id="reviewsGrid"></div>`;
-    const grid = document.getElementById('reviewsGrid');
-
-    for (const r of reviews) {
-      const stars = '⭐'.repeat(r.productValuation || 0) + '☆'.repeat(5 - (r.productValuation || 0));
-      const isNeg = (r.productValuation || 5) <= 3;
-      const card = document.createElement('div');
-      card.className = 'review-card ' + (isNeg ? 'negative' : 'positive');
-      card.id = 'review-' + r.id;
-
-      card.innerHTML = `
-        <div class="review-header">
-          <div class="review-meta">
-            <div class="review-stars">${stars}</div>
-            <div class="review-product">${r.subjectName || ''} · ${r.userName || 'Покупатель'}</div>
-          </div>
-          <div style="font-size:12px;color:#aaa">${new Date(r.createdDate).toLocaleDateString('ru')}</div>
-        </div>
-        <div class="review-text">${r.text || '(Без текста — только оценка)'}</div>
-        <div class="review-reply-area" id="reply-area-${r.id}">
-          <div class="review-reply-label">🤖 Генерирую ответ...</div>
-          <div class="review-reply-text" id="reply-text-${r.id}"></div>
-        </div>
-        <div class="review-actions">
-          <button class="btn btn-publish" onclick="publishReply('${r.id}', '${cab.wbToken}')">✓ Опубликовать</button>
-          <button class="btn btn-edit" onclick="editReply('${r.id}')">✏ Изменить</button>
-          <button class="btn btn-skip" onclick="skipReview('${r.id}')">Пропустить</button>
-        </div>`;
-      grid.appendChild(card);
-
-      generateReply(r, cab.wbToken);
-    }
-  } catch(e) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">❌</div><div>Ошибка: ${e.message}</div></div>`;
-  }
+async function publishReply(reviewId){
+  const textEl=document.getElementById('rt-'+reviewId);
+  const text=textEl?.textContent?.trim();
+  if(!text){alert('Сначала сгенерируй или напиши ответ');return}
+  const token=cabToken();
+  if(!token){alert('Нет токена кабинета');return}
+  const statusEl=document.getElementById('rs-'+reviewId);
+  if(statusEl){statusEl.textContent='Публикую...';statusEl.className='status-pill pill-wait'}
+  try{
+    const res=await fetch('/reviews/publish',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wb_token:token,review_id:reviewId,text})});
+    const data=await res.json();
+    if(data.success){
+      if(statusEl){statusEl.textContent='✓ Опубликован';statusEl.className='status-pill pill-ok'}
+      const card=document.getElementById('rc-'+reviewId);
+      if(card){card.style.opacity='0.55';card.querySelector('.review-actions').innerHTML='<span style="color:#16a34a;font-size:13px">✓ Ответ опубликован</span>'}
+    }else{if(statusEl){statusEl.textContent='❌ Ошибка';statusEl.className='status-pill pill-err'}}
+  }catch(e){if(statusEl){statusEl.textContent='❌ Ошибка';statusEl.className='status-pill pill-err'}}
 }
 
-async function generateReply(review, wbToken) {
-  if (!store.anthropicKey) return;
-  const textEl = document.getElementById('reply-text-' + review.id);
-  const areaEl = document.getElementById('reply-area-' + review.id);
-  if (!textEl) return;
-
-  try {
-    const res = await fetch('/agent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        wb_token: wbToken,
-        anthropic_key: store.anthropicKey,
-        task: `Напиши вежливый ответ продавца на этот отзыв покупателя (только текст ответа, без пояснений):
-Оценка: ${review.productValuation} из 5
-Товар: ${review.subjectName || 'неизвестно'}
-Имя покупателя: ${review.userName || 'Покупатель'}
-Текст отзыва: "${review.text || 'Без текста'}"
-
-Правила WB: только о товаре, без рекламы, без ссылок, вежливо.`
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      areaEl.querySelector('.review-reply-label').textContent = '🤖 Вариант ответа от агента';
-      textEl.textContent = data.result;
-      textEl.contentEditable = 'false';
-    }
-  } catch(e) {
-    areaEl.querySelector('.review-reply-label').textContent = '❌ Не удалось сгенерировать';
-  }
+// ── Вопросы ───────────────────────────────────────────────────────────────────
+async function loadQuestions(){
+  const el=document.getElementById('questionsContent');
+  const token=cabToken();
+  if(!token){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю...</div></div>';
+  try{
+    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
+        task:'Покажи вопросы покупателей без ответа в виде списка'})});
+    const data=await res.json();
+    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Вопросов нет'}</div>`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
 }
 
-async function publishReply(reviewId, wbToken) {
-  const textEl = document.getElementById('reply-text-' + reviewId);
-  const text = textEl?.textContent?.trim();
-  if (!text) { alert('Нет текста ответа'); return; }
-
-  try {
-    const res = await fetch('/agent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        wb_token: wbToken,
-        anthropic_key: store.anthropicKey,
-        task: `Опубликуй ответ на отзыв. ID отзыва: ${reviewId}. Текст ответа: "${text}"`
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      const card = document.getElementById('review-' + reviewId);
-      if (card) {
-        card.style.opacity = '0.5';
-        card.querySelector('.review-actions').innerHTML = '<span style="color:#22c55e;font-size:13px">✓ Опубликовано</span>';
-      }
-    } else {
-      alert('Ошибка публикации: ' + data.result);
-    }
-  } catch(e) {
-    alert('Ошибка: ' + e.message);
-  }
+// ── Заказы ────────────────────────────────────────────────────────────────────
+async function loadOrders(){
+  const el=document.getElementById('ordersContent');
+  const c=cab();
+  if(!c){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю...</div></div>';
+  const token=c.tokenSupplies||c.tokenFeedback;
+  try{
+    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
+        task:'Покажи новые заказы FBS в виде таблицы: номер заказа, артикул, цена'})});
+    const data=await res.json();
+    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Заказов нет'}</div>`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
 }
 
-function editReply(reviewId) {
-  const el = document.getElementById('reply-text-' + reviewId);
-  if (el) {
-    el.contentEditable = 'true';
-    el.focus();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-  }
+// ── Товары ────────────────────────────────────────────────────────────────────
+async function loadGoods(){
+  const el=document.getElementById('goodsContent');
+  const c=cab();
+  if(!c){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
+  el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю товары...</div></div>';
+  const token=c.tokenPrices||c.tokenFeedback;
+  try{
+    const res=await fetch(`/agent`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({wb_token:token,anthropic_key:S.anthropicKey||'none',
+        task:'Покажи все товары с ценами и скидками в виде списка'})});
+    const data=await res.json();
+    el.innerHTML=`<div style="white-space:pre-wrap;font-size:14px;line-height:1.6;background:#fff;padding:16px;border-radius:11px;border:1px solid #e8e8e8">${data.result||'Товаров нет'}</div>`;
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`}
 }
 
-function skipReview(reviewId) {
-  const card = document.getElementById('review-' + reviewId);
-  if (card) card.remove();
-}
-
-// ─── Инициализация ────────────────────────────────────────────────────────────
-
-renderCabinets();
-
-const savedKey = store.anthropicKey;
-if (savedKey) document.getElementById('anthropicKey').value = savedKey;
+// ── Инициализация ─────────────────────────────────────────────────────────────
+renderCabs();
+const savedKey=S.anthropicKey;
+if(savedKey&&document.getElementById('anthropicKey'))document.getElementById('anthropicKey').value=savedKey;
 </script>
 </body>
 </html>
