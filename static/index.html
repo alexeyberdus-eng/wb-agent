@@ -993,7 +993,7 @@ function renderDashboard() {
     <div class="kpi-card"><div class="kpi-label">Показы</div><div class="kpi-value">${fmt(s.opens)}</div><div class="kpi-sub">корзин: ${fmt(s.carts)}</div></div>
     <div class="kpi-card"><div class="kpi-label">CR → корзина</div><div class="kpi-value">${fmtPct(s.cr_open_cart)}</div></div>
     <div class="kpi-card"><div class="kpi-label">CR → заказ</div><div class="kpi-value">${fmtPct(s.cr_cart_order)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Расход рекламы</div><div class="kpi-value">${fmtK(s.ad_spend)}</div><div class="kpi-sub class="${colorDrr(s.ad_drr)}">ДРР: ${fmtPct(s.ad_drr)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Расход рекламы</div><div class="kpi-value">${fmtK(s.ad_spend)}</div><div class="kpi-sub ${colorDrr(s.ad_drr)}">ДРР: ${fmtPct(s.ad_drr)}</div></div>
     <div class="kpi-card"><div class="kpi-label">ДРР общий</div><div class="kpi-value ${colorDrr(s.total_drr)}">${fmtPct(s.total_drr)}</div></div>
     <div class="kpi-card"><div class="kpi-label">CTR рекламы</div><div class="kpi-value">${fmtPct(s.ctr)}</div></div>
   </div>`;
