@@ -130,6 +130,7 @@ textarea:focus{border-color:#7c3aed}
   <div class="nav-item" id="nav-supplies" onclick="showPage('supplies')">🚚 Поставки</div>
   <div class="nav-item" id="nav-adverts" onclick="showPage('adverts')">📣 Реклама</div>
   <div class="nav-item" id="nav-analytics" onclick="showPage('analytics');loadAnalytics()">📊 Аналитика</div>
+  <div class="nav-item" id="nav-sheets" onclick="showPage('sheets');loadSheets('dashboard')">📋 Дашборд WB</div>
   <div class="nav-bottom">
     <div class="nav-item" id="nav-diag" onclick="showPage('diag')">🔍 Диагностика</div>
     <div class="nav-item" id="nav-settings" onclick="showPage('settings')">⚙️ Настройки</div>
@@ -278,6 +279,40 @@ textarea:focus{border-color:#7c3aed}
   </div>
 </div>
 
+<!-- SHEETS DASHBOARD -->
+<div class="page" id="page-sheets">
+  <div class="page-header">
+    <span class="page-title" id="sheetPageTitle">Дашборд WB</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="loadSheets(currentSheetKey, true)">↻ Обновить</button>
+      <span id="sheetCacheInfo" style="font-size:11px;color:#aaa"></span>
+    </div>
+  </div>
+
+  <!-- Вкладки листов -->
+  <div style="background:#fff;border-bottom:1px solid #e8e8e8;padding:0 20px;display:flex;gap:0;flex-shrink:0;overflow-x:auto">
+    <div class="an-tab active" id="stab-dashboard" onclick="loadSheets('dashboard')">WB DASHBOARD</div>
+    <div class="an-tab" id="stab-ads_daily" onclick="loadSheets('ads_daily')">Ежедневная реклама</div>
+    <div class="an-tab" id="stab-ads_campaigns" onclick="loadSheets('ads_campaigns')">РК эффективность</div>
+    <div class="an-tab" id="stab-ads_sku" onclick="loadSheets('ads_sku')">Статистика артикулов</div>
+    <div class="an-tab" id="stab-ads_cpm" onclick="loadSheets('ads_cpm')">CPM Ключи</div>
+  </div>
+
+  <!-- Чат с аналитиком -->
+  <div style="background:#faf5ff;border-bottom:1px solid #e0d4ff;padding:10px 20px;display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+    <span style="font-size:12px;color:#7c3aed;font-weight:500">🤖 Спроси по данным:</span>
+    <input id="sheetsChatInput" type="text" placeholder="Например: какие артикулы проблемные? или сравни ДРР по дням"
+      style="flex:1;min-width:200px;border:1px solid #e0d4ff;border-radius:7px;padding:6px 10px;font-size:13px;outline:none"
+      onkeydown="if(event.key==='Enter')askSheets()">
+    <button class="btn btn-primary btn-sm" onclick="askSheets()">Спросить</button>
+  </div>
+  <div id="sheetsChatAnswer" style="display:none;font-size:13px;color:#333;background:#ede9fe;border-bottom:1px solid #e0d4ff;padding:10px 20px;line-height:1.5;flex-shrink:0"></div>
+
+  <div style="flex:1;overflow:auto;padding:0" id="sheetsContent">
+    <div class="empty"><div class="empty-icon">📋</div><div>Добавь ссылку на Google Sheets в настройках кабинета</div></div>
+  </div>
+</div>
+
 <!-- ДИАГНОСТИКА -->
 <div class="page" id="page-diag">
   <div class="page-header">
@@ -343,6 +378,16 @@ textarea:focus{border-color:#7c3aed}
       <button class="btn btn-primary" onclick="addCabinet()" style="width:100%">Добавить кабинет</button>
     </div>
     <div class="settings-card" id="cabListSettings"></div>
+
+    <div class="settings-card">
+      <div class="card-title">📋 Google Sheets дашборд</div>
+      <div class="field">
+        <label>Ссылка на таблицу</label>
+        <input type="text" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+        <span class="field-hint">Таблица должна быть открыта: Настройки доступа → Все у кого есть ссылка → Просматривающий</span>
+      </div>
+      <button class="btn btn-primary" onclick="saveSheetsUrl()">Сохранить</button>
+    </div>
   </div>
 </div>
 
@@ -1120,10 +1165,218 @@ async function askAnalytics() {
   answer.textContent = r.ok ? r.data.answer : '❌ ' + r.error;
 }
 
+// ── Google Sheets дашборд ────────────────────────────────────────────────────
+let currentSheetKey = 'dashboard';
+
+const SHEET_TITLES = {
+  'dashboard': 'WB DASHBOARD',
+  'ads_daily': 'Ежедневная реклама',
+  'ads_campaigns': 'РК эффективность',
+  'ads_sku': 'Статистика артикулов',
+  'ads_cpm': 'CPM Ключи'
+};
+
+function getSheetsUrl() {
+  return localStorage.getItem('sheetsUrl') || '';
+}
+
+function saveSheetsUrl() {
+  const url = document.getElementById('sheetsUrl').value.trim();
+  if (!url) { alert('Введи ссылку'); return; }
+  localStorage.setItem('sheetsUrl', url);
+  log('ok', 'Ссылка на Google Sheets сохранена');
+  alert('Сохранено ✅');
+}
+
+async function loadSheets(key, forceRefresh) {
+  currentSheetKey = key || 'dashboard';
+
+  // Переключаем вкладки
+  document.querySelectorAll('[id^="stab-"]').forEach(t => t.classList.remove('active'));
+  const tabEl = document.getElementById('stab-' + currentSheetKey);
+  if (tabEl) tabEl.classList.add('active');
+
+  const titleEl = document.getElementById('sheetPageTitle');
+  if (titleEl) titleEl.textContent = SHEET_TITLES[currentSheetKey] || currentSheetKey;
+
+  const url = getSheetsUrl();
+  const el = document.getElementById('sheetsContent');
+
+  if (!url) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🔗</div><div>Добавь ссылку на Google Sheets в настройках</div><button class="btn btn-primary" style="margin-top:8px" onclick="showPage('settings')">Открыть настройки</button></div>';
+    return;
+  }
+
+  el.innerHTML = '<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю данные...</div></div>';
+  document.getElementById('sheetCacheInfo').textContent = '';
+
+  const r = await safeFetch('/sheets/data', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({sheets_url: url, sheet_key: currentSheetKey, force_refresh: !!forceRefresh})
+  }, `POST /sheets/data (${currentSheetKey})`);
+
+  if (!r.ok) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div>${r.error || 'Ошибка загрузки'}</div></div>`;
+    return;
+  }
+
+  const rows = r.data.rows || [];
+  document.getElementById('sheetCacheInfo').textContent = `Обновлено: ${r.data.updated_at}`;
+
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>Лист пустой</div></div>';
+    return;
+  }
+
+  // Рендерим таблицу
+  if (currentSheetKey === 'dashboard') {
+    renderDashboardSheet(rows, el);
+  } else {
+    renderGenericSheet(rows, el);
+  }
+}
+
+function renderDashboardSheet(rows, el) {
+  // Дашборд имеет особую структуру — сводка сверху, потом блоки по товарам
+  // Определяем блоки: строки без данных в колонке A — разделители
+  
+  let html = '<div style="overflow:auto;padding:0">';
+  
+  // Рендерим как таблицу с подсветкой
+  html += '<table class="an-table" style="border-radius:0;border:none;min-width:800px">';
+  
+  rows.forEach((row, idx) => {
+    if (!row || row.every(c => !c)) {
+      html += '<tr style="height:4px;background:#e8e5e0"><td colspan="999"></td></tr>';
+      return;
+    }
+
+    const isHeader = idx === 0;
+    const isSummaryRow = idx > 0 && !row[0] && !row[1] && row[2]; // строки сводки
+    const isProductName = idx > 0 && row[0] && !row[2]; // имя товара
+    const isProductMeta = idx > 0 && row[0] && row[1] && !row[2]; // артикул, SKU и т.д.
+    const isDataRow = idx > 0 && row[2]; // строка с метрикой
+
+    let trStyle = '';
+    let tag = 'td';
+
+    if (isHeader) {
+      tag = 'th';
+      trStyle = 'background:#111827;color:#fff';
+    } else if (isProductName) {
+      trStyle = 'background:#1a1a1a;color:#fff;font-weight:600';
+    } else if (isProductMeta) {
+      trStyle = 'background:#f5f1ea;font-size:12px';
+    } else if (isSummaryRow) {
+      // Подсветка по типу метрики
+      const metric = row[2] || '';
+      if (metric.includes('заказы ₽') || metric.includes('прибыль')) trStyle = 'background:#f5f1ea';
+      else if (metric.includes('ДРР') || metric.includes('маржин')) trStyle = 'background:#eef0f2';
+      else if (metric.includes('Показы') || metric.includes('открытия') || metric.includes('позиция')) trStyle = 'background:#e9eef5';
+      else if (metric.includes('корзин') || metric.includes('CR') || metric.includes('CTR')) trStyle = 'background:#fffdf8';
+      else if (metric.includes('расход') || metric.includes('Расход')) trStyle = 'background:#fff4cc';
+    }
+
+    html += `<tr style="${trStyle}">`;
+    
+    row.forEach((cell, ci) => {
+      const val = String(cell || '');
+      let cellStyle = 'padding:6px 10px;font-size:12px;white-space:nowrap';
+      
+      // Цвет для значений ДРР
+      if (val.includes('%') && (row[2] || '').includes('ДРР')) {
+        const num = parseFloat(val);
+        if (num > 20) cellStyle += ';color:#dc2626;font-weight:500';
+        else if (num > 0) cellStyle += ';color:#16a34a';
+      }
+      // Красный для отрицательных прибылей
+      if (val.startsWith('-') && (row[2] || '').includes('прибыль')) {
+        cellStyle += ';color:#dc2626';
+      }
+      // Знак ↘ ❌ красным
+      if (val === '↘ ❌') cellStyle += ';color:#dc2626;text-align:center';
+
+      html += `<${tag} style="${cellStyle}">${val}</${tag}>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+function renderGenericSheet(rows, el) {
+  if (!rows.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>Нет данных</div></div>'; return; }
+
+  let html = '<div style="overflow:auto;padding:0"><table class="an-table" style="border-radius:0;border:none;min-width:600px">';
+
+  rows.forEach((row, idx) => {
+    if (!row || row.every(c => !c)) {
+      html += '<tr style="height:4px;background:#e8e5e0"><td colspan="999"></td></tr>';
+      return;
+    }
+
+    const isHeader = idx === 0;
+    html += isHeader ? '<tr style="background:#111827;color:#fff">' : '<tr>';
+
+    row.forEach(cell => {
+      const val = String(cell || '');
+      const tag = isHeader ? 'th' : 'td';
+      let style = 'padding:7px 10px;font-size:12px;white-space:nowrap';
+
+      // Красный для ↘ ❌ и отрицательных ДРР
+      if (val === '↘ ❌' || (val.startsWith('-') && val.includes('₽'))) style += ';color:#dc2626';
+      // ДРР подсветка
+      if (val.includes('%')) {
+        const num = parseFloat(val);
+        if (num > 25 && (row[1] || '').toLowerCase().includes('дрр')) style += ';color:#dc2626;font-weight:500';
+      }
+
+      html += `<${tag} style="${style}">${val}</${tag}>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+async function askSheets() {
+  const input = document.getElementById('sheetsChatInput');
+  const answer = document.getElementById('sheetsChatAnswer');
+  const question = input.value.trim();
+  if (!question) return;
+  if (!S.anthropicKey) { alert('Добавь Anthropic API ключ в настройках'); return; }
+  const url = getSheetsUrl();
+  if (!url) { alert('Добавь ссылку на Google Sheets в настройках'); return; }
+
+  answer.style.display = 'block';
+  answer.textContent = '🤖 Анализирую данные...';
+  input.value = '';
+
+  const r = await safeFetch('/sheets/ask', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      wb_token_analytics: url, // используем это поле для передачи URL
+      wb_token_advert: '',
+      anthropic_key: S.anthropicKey,
+      question,
+      date_from: '', date_to: ''
+    })
+  }, 'POST /sheets/ask');
+
+  answer.textContent = r.ok ? r.data.answer : '❌ ' + r.error;
+}
+
 // ── Инициализация ─────────────────────────────────────────────────────────────
 renderCabs();
 if(S.anthropicKey&&document.getElementById('anthropicKey'))
   document.getElementById('anthropicKey').value=S.anthropicKey;
+const savedSheetsUrl=getSheetsUrl();
+if(savedSheetsUrl&&document.getElementById('sheetsUrl'))
+  document.getElementById('sheetsUrl').value=savedSheetsUrl;
 log('info','Приложение запущено');
 </script>
 </body>
