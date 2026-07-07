@@ -393,7 +393,9 @@ textarea:focus{border-color:#7c3aed}
 
 </div>
 
+
 <script>
+
 // ── Логирование ───────────────────────────────────────────────────────────────
 const LOGS = [];
 function log(level, msg, detail=''){
@@ -979,163 +981,162 @@ function fmtPct(n) { return n === '' || n === null ? '—' : parseFloat(n).toFix
 function colorDrr(v) { return v > 25 ? 'red-val' : v > 0 ? 'green-val' : ''; }
 function colorStock(v) { return v < 10 ? 'red-val' : v < 30 ? '' : 'green-val'; }
 
+
 function renderDashboard() {
   if (!analyticsData) return;
-  const d = analyticsData;
-  const s = d.summary || {};
-  const el = document.getElementById('analyticsContent');
+  var d = analyticsData;
+  var s = d.summary || {};
+  var el = document.getElementById('analyticsContent');
 
-  // KPI карточки
-  let kpi = `<div class="kpi-grid">
-    <div class="kpi-card"><div class="kpi-label">Заказы ₽</div><div class="kpi-value">${fmtK(s.orders_rub)}</div><div class="kpi-sub">${fmt(s.orders_qty)} шт</div></div>
-    <div class="kpi-card"><div class="kpi-label">Органика</div><div class="kpi-value">${fmt(s.organic_orders)} шт</div><div class="kpi-sub">из рекламы: ${fmt(s.ad_orders)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Средний чек</div><div class="kpi-value">${fmtK(s.avg_check)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Показы</div><div class="kpi-value">${fmt(s.opens)}</div><div class="kpi-sub">корзин: ${fmt(s.carts)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">CR → корзина</div><div class="kpi-value">${fmtPct(s.cr_open_cart)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">CR → заказ</div><div class="kpi-value">${fmtPct(s.cr_cart_order)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Расход рекламы</div><div class="kpi-value">${fmtK(s.ad_spend)}</div><div class="kpi-sub ${colorDrr(s.ad_drr)}">ДРР: ${fmtPct(s.ad_drr)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">ДРР общий</div><div class="kpi-value ${colorDrr(s.total_drr)}">${fmtPct(s.total_drr)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">CTR рекламы</div><div class="kpi-value">${fmtPct(s.ctr)}</div></div>
-  </div>`;
+  function kpiCard(label, value, sub) {
+    return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-value">' + value + '</div>' + (sub ? '<div class="kpi-sub">' + sub + '</div>' : '') + '</div>';
+  }
 
-  // Таблица по дням
-  let dayRows = (d.daily || []).map(r => `<tr>
-    <td>${r.date?.slice(5)}</td>
-    <td>${fmtK(r.orders_rub)}</td>
-    <td>${fmt(r.orders_qty)}</td>
-    <td>${fmt(r.organic_orders)}</td>
-    <td>${fmt(r.ad_orders)}</td>
-    <td>${fmtK(r.avg_check)}</td>
-    <td>${fmt(r.opens)}</td>
-    <td>${fmt(r.carts)}</td>
-    <td>${fmtPct(r.cr_open_cart)}</td>
-    <td>${fmtPct(r.cr_cart_order)}</td>
-    <td>${fmtK(r.ad_spend)}</td>
-    <td class="${colorDrr(r.ad_drr)}">${fmtPct(r.ad_drr)}</td>
-    <td class="${colorDrr(r.total_drr)}">${fmtPct(r.total_drr)}</td>
-  </tr>`).join('');
+  var kpi = '<div class="kpi-grid">';
+  kpi += kpiCard('Заказы ₽', fmtK(s.orders_rub), fmt(s.orders_qty) + ' шт');
+  kpi += kpiCard('Органика', fmt(s.organic_orders) + ' шт', 'из рекламы: ' + fmt(s.ad_orders));
+  kpi += kpiCard('Средний чек', fmtK(s.avg_check), '');
+  kpi += kpiCard('Показы', fmt(s.opens), 'корзин: ' + fmt(s.carts));
+  kpi += kpiCard('CR → корзина', fmtPct(s.cr_open_cart), '');
+  kpi += kpiCard('CR → заказ', fmtPct(s.cr_cart_order), '');
+  kpi += kpiCard('Расход рекламы', fmtK(s.ad_spend), 'ДРР: ' + fmtPct(s.ad_drr));
+  kpi += kpiCard('ДРР общий', fmtPct(s.total_drr), '');
+  kpi += kpiCard('CTR рекламы', fmtPct(s.ctr), '');
+  kpi += '</div>';
 
-  let dayTable = `<div style="overflow:auto;margin-bottom:16px">
-    <table class="an-table">
-      <thead><tr>
-        <th>Дата</th><th>Заказы ₽</th><th>Заказы шт</th><th>Органика</th><th>Реклама</th>
-        <th>Ср. чек</th><th>Показы</th><th>Корзины</th><th>CR→корзина</th><th>CR→заказ</th>
-        <th>Расход</th><th>ДРР РК</th><th>ДРР общий</th>
-      </tr></thead>
-      <tbody>${dayRows}</tbody>
-    </table>
-  </div>`;
+  var dayRows = '';
+  (d.daily || []).forEach(function(r) {
+    dayRows += '<tr>';
+    dayRows += '<td>' + (r.date || '').slice(5) + '</td>';
+    dayRows += '<td>' + fmtK(r.orders_rub) + '</td>';
+    dayRows += '<td>' + fmt(r.orders_qty) + '</td>';
+    dayRows += '<td>' + fmt(r.organic_orders) + '</td>';
+    dayRows += '<td>' + fmt(r.ad_orders) + '</td>';
+    dayRows += '<td>' + fmtK(r.avg_check) + '</td>';
+    dayRows += '<td>' + fmt(r.opens) + '</td>';
+    dayRows += '<td>' + fmt(r.carts) + '</td>';
+    dayRows += '<td>' + fmtPct(r.cr_open_cart) + '</td>';
+    dayRows += '<td>' + fmtPct(r.cr_cart_order) + '</td>';
+    dayRows += '<td>' + fmtK(r.ad_spend) + '</td>';
+    dayRows += '<td class="' + colorDrr(r.ad_drr) + '">' + fmtPct(r.ad_drr) + '</td>';
+    dayRows += '<td class="' + colorDrr(r.total_drr) + '">' + fmtPct(r.total_drr) + '</td>';
+    dayRows += '</tr>';
+  });
 
-  // Таблица по товарам
-  let prodRows = (d.products || []).map(p => `<tr>
-    <td style="font-family:monospace;font-size:11px">${p.nmId}</td>
-    <td>${p.vendorCode || '—'}</td>
-    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${p.title || '—'}</td>
-    <td>${fmt(p.orders_qty)}</td>
-    <td>${fmtK(p.orders_rub)}</td>
-    <td>${fmtPct(p.cr_open_cart)}</td>
-    <td class="${colorStock(p.stock)}">${fmt(p.stock)} шт</td>
-    <td>${p.rating ? parseFloat(p.rating).toFixed(1) : '—'}</td>
-  </tr>`).join('');
+  var dayTable = '<div style="overflow:auto;margin-bottom:16px"><table class="an-table">';
+  dayTable += '<thead><tr><th>Дата</th><th>Заказы ₽</th><th>Заказы шт</th><th>Органика</th><th>Реклама</th>';
+  dayTable += '<th>Ср. чек</th><th>Показы</th><th>Корзины</th><th>CR→корзина</th><th>CR→заказ</th>';
+  dayTable += '<th>Расход</th><th>ДРР РК</th><th>ДРР общий</th></tr></thead>';
+  dayTable += '<tbody>' + dayRows + '</tbody></table></div>';
 
-  let prodTable = `<div style="font-size:13px;font-weight:500;margin-bottom:8px">Товары за период</div>
-  <div style="overflow:auto">
-    <table class="an-table">
-      <thead><tr>
-        <th>nmID</th><th>Артикул</th><th>Название</th><th>Заказы шт</th><th>Заказы ₽</th>
-        <th>CR→корзина</th><th>Остаток</th><th>Рейтинг</th>
-      </tr></thead>
-      <tbody>${prodRows || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
-    </table>
-  </div>`;
+  var prodRows = '';
+  (d.products || []).forEach(function(p) {
+    prodRows += '<tr>';
+    prodRows += '<td style="font-family:monospace;font-size:11px">' + p.nmId + '</td>';
+    prodRows += '<td>' + (p.vendorCode || '—') + '</td>';
+    prodRows += '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (p.title || '—') + '</td>';
+    prodRows += '<td>' + fmt(p.orders_qty) + '</td>';
+    prodRows += '<td>' + fmtK(p.orders_rub) + '</td>';
+    prodRows += '<td>' + fmtPct(p.cr_open_cart) + '</td>';
+    prodRows += '<td class="' + colorStock(p.stock) + '">' + fmt(p.stock) + ' шт</td>';
+    prodRows += '<td>' + (p.rating ? parseFloat(p.rating).toFixed(1) : '—') + '</td>';
+    prodRows += '</tr>';
+  });
 
-  el.innerHTML = kpi + `<div style="font-size:13px;font-weight:500;margin-bottom:8px">По дням</div>` + dayTable + prodTable;
+  var prodTable = '<div style="font-size:13px;font-weight:500;margin-bottom:8px">Товары за период</div>';
+  prodTable += '<div style="overflow:auto"><table class="an-table">';
+  prodTable += '<thead><tr><th>nmID</th><th>Артикул</th><th>Название</th><th>Заказы шт</th><th>Заказы ₽</th>';
+  prodTable += '<th>CR→корзина</th><th>Остаток</th><th>Рейтинг</th></tr></thead>';
+  prodTable += '<tbody>' + (prodRows || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>') + '</tbody></table></div>';
+
+  el.innerHTML = kpi + '<div style="font-size:13px;font-weight:500;margin-bottom:8px">По дням</div>' + dayTable + prodTable;
 }
 
 function renderAdsDaily() {
-  const el = document.getElementById('analyticsContent');
+  var el = document.getElementById('analyticsContent');
   if (!adsData) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы. Добавь токен «Реклама» в настройках кабинета.</div></div>';
     return;
   }
-  const rows = (adsData.daily || []).map(r => `<tr>
-    <td>${r.date?.slice(5)}</td>
-    <td>${fmtK(r.spend)}</td>
-    <td>${fmtK(r.revenue)}</td>
-    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
-    <td>${fmt(r.views)}</td>
-    <td>${fmt(r.clicks)}</td>
-    <td>${fmtPct(r.ctr)}</td>
-    <td>${fmt(r.carts)}</td>
-    <td>${fmtPct(r.cr_cart)}</td>
-    <td>${fmt(r.orders)}</td>
-    <td>${fmtPct(r.cr_order)}</td>
-    <td>${fmtK(r.cpc)}</td>
-    <td>${fmtK(r.cpo)}</td>
-  </tr>`).join('');
-
-  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
-    <thead><tr>
-      <th>Дата</th><th>Расход</th><th>Продажи</th><th>ДРР</th><th>Показы</th><th>Клики</th>
-      <th>CTR</th><th>Корзины</th><th>CR→корзина</th><th>Заказы</th><th>CR→заказ</th><th>CPC</th><th>CPO</th>
-    </tr></thead>
-    <tbody>${rows || '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
-  </table></div>`;
+  var rows = '';
+  (adsData.daily || []).forEach(function(r) {
+    rows += '<tr>';
+    rows += '<td>' + (r.date || '').slice(5) + '</td>';
+    rows += '<td>' + fmtK(r.spend) + '</td>';
+    rows += '<td>' + fmtK(r.revenue) + '</td>';
+    rows += '<td class="' + colorDrr(r.drr) + '">' + fmtPct(r.drr) + '</td>';
+    rows += '<td>' + fmt(r.views) + '</td>';
+    rows += '<td>' + fmt(r.clicks) + '</td>';
+    rows += '<td>' + fmtPct(r.ctr) + '</td>';
+    rows += '<td>' + fmt(r.carts) + '</td>';
+    rows += '<td>' + fmtPct(r.cr_cart) + '</td>';
+    rows += '<td>' + fmt(r.orders) + '</td>';
+    rows += '<td>' + fmtPct(r.cr_order) + '</td>';
+    rows += '<td>' + fmtK(r.cpc) + '</td>';
+    rows += '<td>' + fmtK(r.cpo) + '</td>';
+    rows += '</tr>';
+  });
+  var html = '<div style="overflow:auto"><table class="an-table">';
+  html += '<thead><tr><th>Дата</th><th>Расход</th><th>Продажи</th><th>ДРР</th><th>Показы</th><th>Клики</th>';
+  html += '<th>CTR</th><th>Корзины</th><th>CR→корзина</th><th>Заказы</th><th>CR→заказ</th><th>CPC</th><th>CPO</th></tr></thead>';
+  html += '<tbody>' + (rows || '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>') + '</tbody></table></div>';
+  el.innerHTML = html;
 }
 
 function renderAdsCampaigns() {
-  const el = document.getElementById('analyticsContent');
+  var el = document.getElementById('analyticsContent');
   if (!adsData) { el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы</div></div>'; return; }
-  const rows = (adsData.campaigns || []).map(r => `<tr>
-    <td>${r.id}</td>
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.name || '—'}</td>
-    <td>${fmtK(r.spend)}</td>
-    <td>${fmtK(r.revenue)}</td>
-    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
-    <td>${fmt(r.views)}</td>
-    <td>${fmt(r.clicks)}</td>
-    <td>${fmtPct(r.ctr)}</td>
-    <td>${fmt(r.carts)}</td>
-    <td>${fmt(r.orders)}</td>
-    <td>${fmtK(r.cpc)}</td>
-    <td>${fmtK(r.cpo)}</td>
-  </tr>`).join('');
-
-  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
-    <thead><tr>
-      <th>ID РК</th><th>Название</th><th>Расход</th><th>Продажи</th><th>ДРР</th>
-      <th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th>
-    </tr></thead>
-    <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
-  </table></div>`;
+  var rows = '';
+  (adsData.campaigns || []).forEach(function(r) {
+    rows += '<tr>';
+    rows += '<td>' + r.id + '</td>';
+    rows += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">' + (r.name || '—') + '</td>';
+    rows += '<td>' + fmtK(r.spend) + '</td>';
+    rows += '<td>' + fmtK(r.revenue) + '</td>';
+    rows += '<td class="' + colorDrr(r.drr) + '">' + fmtPct(r.drr) + '</td>';
+    rows += '<td>' + fmt(r.views) + '</td>';
+    rows += '<td>' + fmt(r.clicks) + '</td>';
+    rows += '<td>' + fmtPct(r.ctr) + '</td>';
+    rows += '<td>' + fmt(r.carts) + '</td>';
+    rows += '<td>' + fmt(r.orders) + '</td>';
+    rows += '<td>' + fmtK(r.cpc) + '</td>';
+    rows += '<td>' + fmtK(r.cpo) + '</td>';
+    rows += '</tr>';
+  });
+  var html = '<div style="overflow:auto"><table class="an-table">';
+  html += '<thead><tr><th>ID РК</th><th>Название</th><th>Расход</th><th>Продажи</th><th>ДРР</th>';
+  html += '<th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th></tr></thead>';
+  html += '<tbody>' + (rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>') + '</tbody></table></div>';
+  el.innerHTML = html;
 }
 
 function renderAdsSku() {
-  const el = document.getElementById('analyticsContent');
+  var el = document.getElementById('analyticsContent');
   if (!adsData) { el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы</div></div>'; return; }
-  const rows = (adsData.skus || []).map(r => `<tr>
-    <td style="font-family:monospace;font-size:11px">${r.nm_id}</td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.camp_name || '—'}</td>
-    <td>${fmtK(r.spend)}</td>
-    <td>${fmtK(r.revenue)}</td>
-    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
-    <td>${fmt(r.views)}</td>
-    <td>${fmt(r.clicks)}</td>
-    <td>${fmtPct(r.ctr)}</td>
-    <td>${fmt(r.carts)}</td>
-    <td>${fmt(r.orders)}</td>
-    <td>${fmtK(r.cpc)}</td>
-    <td>${fmtK(r.cpo)}</td>
-  </tr>`).join('');
-
-  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
-    <thead><tr>
-      <th>nmID</th><th>РК</th><th>Расход</th><th>Продажи</th><th>ДРР</th>
-      <th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th>
-    </tr></thead>
-    <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
-  </table></div>`;
+  var rows = '';
+  (adsData.skus || []).forEach(function(r) {
+    rows += '<tr>';
+    rows += '<td style="font-family:monospace;font-size:11px">' + r.nm_id + '</td>';
+    rows += '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">' + (r.camp_name || '—') + '</td>';
+    rows += '<td>' + fmtK(r.spend) + '</td>';
+    rows += '<td>' + fmtK(r.revenue) + '</td>';
+    rows += '<td class="' + colorDrr(r.drr) + '">' + fmtPct(r.drr) + '</td>';
+    rows += '<td>' + fmt(r.views) + '</td>';
+    rows += '<td>' + fmt(r.clicks) + '</td>';
+    rows += '<td>' + fmtPct(r.ctr) + '</td>';
+    rows += '<td>' + fmt(r.carts) + '</td>';
+    rows += '<td>' + fmt(r.orders) + '</td>';
+    rows += '<td>' + fmtK(r.cpc) + '</td>';
+    rows += '<td>' + fmtK(r.cpo) + '</td>';
+    rows += '</tr>';
+  });
+  var html = '<div style="overflow:auto"><table class="an-table">';
+  html += '<thead><tr><th>nmID</th><th>РК</th><th>Расход</th><th>Продажи</th><th>ДРР</th>';
+  html += '<th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th></tr></thead>';
+  html += '<tbody>' + (rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>') + '</tbody></table></div>';
+  el.innerHTML = html;
 }
+
 
 async function askAnalytics() {
   const input = document.getElementById('analyticsChatInput');
@@ -1378,6 +1379,7 @@ const savedSheetsUrl=getSheetsUrl();
 if(savedSheetsUrl&&document.getElementById('sheetsUrl'))
   document.getElementById('sheetsUrl').value=savedSheetsUrl;
 log('info','Приложение запущено');
+
 </script>
 </body>
 </html>
