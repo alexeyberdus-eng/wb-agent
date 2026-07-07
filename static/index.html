@@ -348,7 +348,7 @@ function showPage(name){
 async function safeFetch(url, opts, label){
   log('info', `→ ${label||url}`);
   try{
-    const res = await fetch(url, opts);
+    const res = opts ? await fetch(url, opts) : await fetch(url);
     let data;
     const ct = res.headers.get('content-type')||'';
     if(ct.includes('application/json')){
@@ -476,7 +476,7 @@ async function loadReviews(){
   const token=cabToken();
   if(!token){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет в настройках</div></div>';return}
   el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю отзывы...</div></div>';
-  const r=await safeFetch(`/reviews?wb_token=${encodeURIComponent(token)}&take=50`,'','GET /reviews');
+  const r=await safeFetch(`/reviews?wb_token=${encodeURIComponent(token)}&take=50`,undefined,'GET /reviews');
   if(!r.ok){
     el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка ${r.status}: ${r.error}</div><div style="font-size:11px;margin-top:4px">Подробности в разделе Диагностика</div></div>`;
     return;
@@ -623,7 +623,7 @@ async function loadQuestions(){
   const token=cabToken();
   if(!token){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
   el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю...</div></div>';
-  const r=await safeFetch(`/questions?wb_token=${encodeURIComponent(token)}&take=30`,'','GET /questions');
+  const r=await safeFetch(`/questions?wb_token=${encodeURIComponent(token)}&take=30`,undefined,'GET /questions');
   if(!r.ok){
     el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка ${r.status}: ${r.error}</div></div>`;return;
   }
@@ -677,7 +677,7 @@ async function loadOrders(){
   if(!c){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
   el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю заказы...</div></div>';
   const token=c.tokenSupplies||c.tokenFeedback;
-  const r=await safeFetch(`/orders/new?wb_token=${encodeURIComponent(token)}`,'','GET /orders/new');
+  const r=await safeFetch(`/orders/new?wb_token=${encodeURIComponent(token)}`,undefined,'GET /orders/new');
   if(!r.ok){
     el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка ${r.status}: ${r.error}<br><small>Нужен токен «Маркетплейс» — добавь в настройках</small></div></div>`;return;
   }
@@ -710,7 +710,7 @@ async function loadGoods(){
   if(!c){el.innerHTML='<div class="empty"><div class="empty-icon">🔑</div><div>Добавь кабинет</div></div>';return}
   el.innerHTML='<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю товары...</div></div>';
   const token=c.tokenPrices||c.tokenFeedback;
-  const r=await safeFetch(`/goods?wb_token=${encodeURIComponent(token)}&limit=200`,'','GET /goods');
+  const r=await safeFetch(`/goods?wb_token=${encodeURIComponent(token)}&limit=200`,undefined,'GET /goods');
   if(!r.ok){
     el.innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div>Ошибка ${r.status}: ${r.error}<br><small>Нужен токен «Цены и скидки» — добавь в настройках</small></div></div>`;return;
   }
@@ -748,19 +748,19 @@ async function loadGoods(){
 async function testReviews(){
   const token=cabToken();
   if(!token){log('err','Тест отзывов: нет токена кабинета');return}
-  await safeFetch(`/reviews?wb_token=${encodeURIComponent(token)}&take=1`,'','ТЕСТ: GET /reviews');
+  await safeFetch(`/reviews?wb_token=${encodeURIComponent(token)}&take=1`,undefined,'ТЕСТ: GET /reviews');
 }
 async function testOrders(){
   const c=cab();
   if(!c){log('err','Тест заказов: нет кабинета');return}
   const token=c.tokenSupplies||c.tokenFeedback;
-  await safeFetch(`/orders/new?wb_token=${encodeURIComponent(token)}`,'','ТЕСТ: GET /orders/new');
+  await safeFetch(`/orders/new?wb_token=${encodeURIComponent(token)}`,undefined,'ТЕСТ: GET /orders/new');
 }
 async function testGoods(){
   const c=cab();
   if(!c){log('err','Тест товаров: нет кабинета');return}
   const token=c.tokenPrices||c.tokenFeedback;
-  await safeFetch(`/goods?wb_token=${encodeURIComponent(token)}&limit=1`,'','ТЕСТ: GET /goods');
+  await safeFetch(`/goods?wb_token=${encodeURIComponent(token)}&limit=1`,undefined,'ТЕСТ: GET /goods');
 }
 async function testClaude(){
   if(!S.anthropicKey){log('err','Тест Claude: нет ключа');return}
