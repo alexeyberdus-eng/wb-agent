@@ -496,34 +496,65 @@ function renderReviews(){
   el.innerHTML=`<div style="font-size:13px;color:#666;margin-bottom:12px">Отзывов без ответа: <b>${reviewsData.length}</b></div>`;
   reviewsData.forEach(r=>{
     const stars=r.productValuation||0;
+    const sid=getSafeId(r.id);
     const card=document.createElement('div');
-    card.className=`review-card star${stars}`; card.id=`rc-${r.id}`;
-    const photos=(r.photoLinks||[]).map(p=>`<img class="review-photo" src="${p}" alt="фото" onclick="window.open('${p}')">`).join('');
+    card.className=`review-card star${stars}`;
+    card.id=`rc-${sid}`;
+
+    const photos=(r.photoLinks||[]).map(p=>{
+      const img=document.createElement('img');
+      img.className='review-photo'; img.src=p; img.alt='фото';
+      img.onclick=()=>window.open(p); return img.outerHTML;
+    }).join('');
     const photoBlock=photos?`<div class="review-photos">${photos}</div>`:'';
     const starsStr='⭐'.repeat(stars)+'☆'.repeat(5-stars);
     const date=r.createdDate?(new Date(r.createdDate)).toLocaleDateString('ru'):'';
-    const safeId=r.id.replace(/[^a-zA-Z0-9_-]/g,'_');
+
     card.innerHTML=`
       <div class="review-header">
         <div>
           <div style="font-size:15px">${starsStr}</div>
           <div class="review-product">${r.subjectName||'—'} · ${r.userName||'Покупатель'} · ${date}</div>
         </div>
-        <span class="status-pill pill-wait" id="rs-${safeId}">Ожидает</span>
+        <span class="status-pill pill-wait" id="rs-${sid}">Ожидает</span>
       </div>
       <div class="review-text">${r.text||'<i style="color:#bbb">Без текста — только оценка</i>'}</div>
       ${photoBlock}
       <div class="reply-box">
-        <div class="reply-label" id="rl-${safeId}">💬 Ответ продавца</div>
-        <div class="reply-text" id="rt-${safeId}" contenteditable="false"></div>
+        <div class="reply-label" id="rl-${sid}">💬 Ответ продавца</div>
+        <div class="reply-text" id="rt-${sid}" contenteditable="false"></div>
       </div>
-      <div class="review-actions">
-        <button class="btn btn-outline btn-sm" onclick="generateSingleReply(${JSON.stringify(r.id)},${stars},${JSON.stringify(r.subjectName||'')},${JSON.stringify((r.text||'').substring(0,300))},${JSON.stringify(r.userName||'Покупатель')})">✨ Сгенерировать</button>
-        <button class="btn btn-outline btn-sm" onclick="editReply(${JSON.stringify(r.id)})">✏ Изменить</button>
-        <button class="btn btn-green btn-sm" id="pub-${safeId}" onclick="publishReply(${JSON.stringify(r.id)})">✓ Опубликовать</button>
-        <button class="btn btn-danger btn-sm" onclick="document.getElementById(${JSON.stringify('rc-'+r.id)}).remove()">Пропустить</button>
-      </div>`;
+      <div class="review-actions" id="ra-${sid}"></div>`;
+
     el.appendChild(card);
+
+    // Кнопки добавляем через JS чтобы избежать проблем с экранированием в onclick
+    const actions=document.getElementById('ra-'+sid);
+
+    const btnGen=document.createElement('button');
+    btnGen.className='btn btn-outline btn-sm';
+    btnGen.textContent='✨ Сгенерировать';
+    btnGen.onclick=()=>generateSingleReply(r.id, stars, r.subjectName||'', (r.text||'').substring(0,300), r.userName||'Покупатель');
+    actions.appendChild(btnGen);
+
+    const btnEdit=document.createElement('button');
+    btnEdit.className='btn btn-outline btn-sm';
+    btnEdit.textContent='✏ Изменить';
+    btnEdit.onclick=()=>editReply(r.id);
+    actions.appendChild(btnEdit);
+
+    const btnPub=document.createElement('button');
+    btnPub.className='btn btn-green btn-sm';
+    btnPub.id='pub-'+sid;
+    btnPub.textContent='✓ Опубликовать';
+    btnPub.onclick=()=>publishReply(r.id);
+    actions.appendChild(btnPub);
+
+    const btnSkip=document.createElement('button');
+    btnSkip.className='btn btn-danger btn-sm';
+    btnSkip.textContent='Пропустить';
+    btnSkip.onclick=()=>card.remove();
+    actions.appendChild(btnSkip);
   });
 }
 
@@ -601,10 +632,10 @@ async function publishReply(reviewId){
 
   if(r.ok){
     if(statusEl){statusEl.textContent='✓ Опубликован';statusEl.className='status-pill pill-ok'}
-    const card=document.getElementById('rc-'+reviewId);
+    const card=document.getElementById('rc-'+sid);
     if(card){
       card.style.opacity='0.5';
-      const actEl=card.querySelector('.review-actions');
+      const actEl=document.getElementById('ra-'+sid);
       if(actEl)actEl.innerHTML='<span style="color:#16a34a;font-size:13px">✓ Ответ опубликован</span>';
     }
     log('ok',`Ответ опубликован на отзыв ${reviewId}`);
