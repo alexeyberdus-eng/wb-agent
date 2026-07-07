@@ -89,6 +89,20 @@ textarea:focus{border-color:#7c3aed}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px;color:#bbb;text-align:center}
 .empty-icon{font-size:36px}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #e0e0e0;border-top-color:#7c3aed;border-radius:50%;animation:spin .6s linear infinite}
+.an-tab{padding:10px 16px;font-size:13px;cursor:pointer;color:#888;border-bottom:2px solid transparent;transition:all .12s;white-space:nowrap}
+.an-tab:hover{color:#444}
+.an-tab.active{color:#7c3aed;border-bottom-color:#7c3aed;font-weight:500}
+.an-table{width:100%;border-collapse:collapse;background:#fff;border-radius:11px;overflow:hidden;border:1px solid #e8e8e8}
+.an-table th{padding:9px 10px;text-align:left;font-size:11px;color:#888;background:#fafafa;border-bottom:2px solid #f0f0f0;white-space:nowrap}
+.an-table td{padding:9px 10px;font-size:13px;border-bottom:1px solid #f5f5f5;white-space:nowrap}
+.an-table tr:hover td{background:#fafafa}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:12px 14px}
+.kpi-label{font-size:11px;color:#888;margin-bottom:4px}
+.kpi-value{font-size:20px;font-weight:500;color:#1a1a1a}
+.kpi-sub{font-size:11px;color:#aaa;margin-top:2px}
+.red-val{color:#dc2626}
+.green-val{color:#16a34a}
 @keyframes spin{to{transform:rotate(360deg)}}
 .agent-status{font-size:12px;padding:3px 9px;border-radius:12px;font-weight:500}
 .status-ready{background:#dcfce7;color:#16a34a}
@@ -115,6 +129,7 @@ textarea:focus{border-color:#7c3aed}
   <div class="nav-item" id="nav-goods" onclick="showPage('goods');loadGoods()">🏷 Товары</div>
   <div class="nav-item" id="nav-supplies" onclick="showPage('supplies')">🚚 Поставки</div>
   <div class="nav-item" id="nav-adverts" onclick="showPage('adverts')">📣 Реклама</div>
+  <div class="nav-item" id="nav-analytics" onclick="showPage('analytics');loadAnalytics()">📊 Аналитика</div>
   <div class="nav-bottom">
     <div class="nav-item" id="nav-diag" onclick="showPage('diag')">🔍 Диагностика</div>
     <div class="nav-item" id="nav-settings" onclick="showPage('settings')">⚙️ Настройки</div>
@@ -223,6 +238,43 @@ textarea:focus{border-color:#7c3aed}
       <div>Управляй рекламой через агента</div>
       <button class="btn btn-primary" style="margin-top:8px" onclick="showPage('chat');setTimeout(()=>{document.getElementById('taskInput').value='Покажи активные рекламные кампании'},100)">Открыть агента</button>
     </div>
+  </div>
+</div>
+
+<!-- АНАЛИТИКА -->
+<div class="page" id="page-analytics">
+  <div class="page-header">
+    <span class="page-title">Аналитика</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="analyticsPeriod" style="border:1px solid #e0e0e0;border-radius:7px;padding:5px 10px;font-size:13px;outline:none" onchange="loadAnalytics()">
+        <option value="7">7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="28" selected>28 дней</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="loadAnalytics()">↻ Обновить</button>
+    </div>
+  </div>
+
+  <!-- Вкладки -->
+  <div style="background:#fff;border-bottom:1px solid #e8e8e8;padding:0 20px;display:flex;gap:0;flex-shrink:0">
+    <div class="an-tab active" id="tab-dashboard" onclick="switchTab('dashboard')">Дашборд</div>
+    <div class="an-tab" id="tab-ads-daily" onclick="switchTab('ads-daily')">Ежедневная реклама</div>
+    <div class="an-tab" id="tab-ads-camp" onclick="switchTab('ads-camp')">РК эффективность</div>
+    <div class="an-tab" id="tab-ads-sku" onclick="switchTab('ads-sku')">РК артикулы</div>
+  </div>
+
+  <!-- Чат с аналитиком -->
+  <div style="background:#faf5ff;border-bottom:1px solid #e0d4ff;padding:10px 20px;display:flex;gap:8px;flex-shrink:0;align-items:center">
+    <span style="font-size:12px;color:#7c3aed;font-weight:500">🤖 Спроси аналитика:</span>
+    <input id="analyticsChatInput" type="text" placeholder="Например: какие артикулы проблемные? или сравни последние 7 дней"
+      style="flex:1;border:1px solid #e0d4ff;border-radius:7px;padding:6px 10px;font-size:13px;outline:none"
+      onkeydown="if(event.key==='Enter')askAnalytics()">
+    <button class="btn btn-primary btn-sm" onclick="askAnalytics()">Спросить</button>
+    <div id="analyticsChatAnswer" style="display:none;font-size:13px;color:#333;background:#fff;border:1px solid #e0d4ff;border-radius:7px;padding:8px 12px;max-width:600px;line-height:1.5"></div>
+  </div>
+
+  <div class="content" id="analyticsContent">
+    <div class="empty"><div class="empty-icon">📊</div><div>Загрузка данных...</div></div>
   </div>
 </div>
 
@@ -804,6 +856,268 @@ async function testClaude(){
       product:'Тест',text:'Отличный товар',user_name:'Тест'})},
     'ТЕСТ: Claude API (generate-reply)');
   if(r.ok)log('ok',`Claude ответил: "${(r.data?.reply||'').substring(0,50)}..."`);
+}
+
+// ── Аналитика ─────────────────────────────────────────────────────────────────
+let analyticsData = null;
+let adsData = null;
+let currentTab = 'dashboard';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.an-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab)?.classList.add('active');
+  renderCurrentTab();
+}
+
+function getAnalyticsDates() {
+  const days = parseInt(document.getElementById('analyticsPeriod')?.value || '28');
+  const to = new Date(); to.setDate(to.getDate() - 1);
+  const from = new Date(to); from.setDate(from.getDate() - (days - 1));
+  const fmt = d => d.toISOString().split('T')[0];
+  return { from: fmt(from), to: fmt(to) };
+}
+
+async function loadAnalytics() {
+  const c = cab();
+  if (!c) return;
+  const el = document.getElementById('analyticsContent');
+  el.innerHTML = '<div class="empty"><div class="empty-icon"><div class="spinner"></div></div><div>Загружаю данные...</div></div>';
+  const dates = getAnalyticsDates();
+  const tokenA = c.tokenAnalytics || c.tokenFeedback;
+  const tokenAd = c.tokenAdvert || '';
+
+  // Загружаем дашборд и рекламу параллельно
+  const [dashRes, adsRes] = await Promise.all([
+    safeFetch('/analytics/dashboard', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({wb_token_analytics: tokenA, wb_token_advert: tokenAd,
+        date_from: dates.from, date_to: dates.to})
+    }, 'POST /analytics/dashboard'),
+    tokenAd ? safeFetch('/analytics/ads', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({wb_token_analytics: tokenA, wb_token_advert: tokenAd,
+        date_from: dates.from, date_to: dates.to})
+    }, 'POST /analytics/ads') : Promise.resolve({ok: false})
+  ]);
+
+  if (dashRes.ok) analyticsData = dashRes.data;
+  if (adsRes.ok) adsData = adsRes.data;
+
+  if (!dashRes.ok) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">❌</div><div>Ошибка: ${dashRes.error}<br><small>Нужен токен «Аналитика» в настройках кабинета</small></div></div>`;
+    return;
+  }
+  renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  if (currentTab === 'dashboard') renderDashboard();
+  else if (currentTab === 'ads-daily') renderAdsDaily();
+  else if (currentTab === 'ads-camp') renderAdsCampaigns();
+  else if (currentTab === 'ads-sku') renderAdsSku();
+}
+
+function fmt(n, suffix='') {
+  if (n === null || n === undefined || n === '') return '—';
+  const num = parseFloat(n);
+  if (isNaN(num)) return '—';
+  return num.toLocaleString('ru') + suffix;
+}
+function fmtK(n) {
+  if (!n) return '—';
+  return n >= 1000 ? Math.round(n/1000).toLocaleString('ru') + 'к₽' : Math.round(n) + '₽';
+}
+function fmtPct(n) { return n === '' || n === null ? '—' : parseFloat(n).toFixed(1) + '%'; }
+function colorDrr(v) { return v > 25 ? 'red-val' : v > 0 ? 'green-val' : ''; }
+function colorStock(v) { return v < 10 ? 'red-val' : v < 30 ? '' : 'green-val'; }
+
+function renderDashboard() {
+  if (!analyticsData) return;
+  const d = analyticsData;
+  const s = d.summary || {};
+  const el = document.getElementById('analyticsContent');
+
+  // KPI карточки
+  let kpi = `<div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-label">Заказы ₽</div><div class="kpi-value">${fmtK(s.orders_rub)}</div><div class="kpi-sub">${fmt(s.orders_qty)} шт</div></div>
+    <div class="kpi-card"><div class="kpi-label">Органика</div><div class="kpi-value">${fmt(s.organic_orders)} шт</div><div class="kpi-sub">из рекламы: ${fmt(s.ad_orders)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Средний чек</div><div class="kpi-value">${fmtK(s.avg_check)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Показы</div><div class="kpi-value">${fmt(s.opens)}</div><div class="kpi-sub">корзин: ${fmt(s.carts)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">CR → корзина</div><div class="kpi-value">${fmtPct(s.cr_open_cart)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">CR → заказ</div><div class="kpi-value">${fmtPct(s.cr_cart_order)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Расход рекламы</div><div class="kpi-value">${fmtK(s.ad_spend)}</div><div class="kpi-sub class="${colorDrr(s.ad_drr)}">ДРР: ${fmtPct(s.ad_drr)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">ДРР общий</div><div class="kpi-value ${colorDrr(s.total_drr)}">${fmtPct(s.total_drr)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">CTR рекламы</div><div class="kpi-value">${fmtPct(s.ctr)}</div></div>
+  </div>`;
+
+  // Таблица по дням
+  let dayRows = (d.daily || []).map(r => `<tr>
+    <td>${r.date?.slice(5)}</td>
+    <td>${fmtK(r.orders_rub)}</td>
+    <td>${fmt(r.orders_qty)}</td>
+    <td>${fmt(r.organic_orders)}</td>
+    <td>${fmt(r.ad_orders)}</td>
+    <td>${fmtK(r.avg_check)}</td>
+    <td>${fmt(r.opens)}</td>
+    <td>${fmt(r.carts)}</td>
+    <td>${fmtPct(r.cr_open_cart)}</td>
+    <td>${fmtPct(r.cr_cart_order)}</td>
+    <td>${fmtK(r.ad_spend)}</td>
+    <td class="${colorDrr(r.ad_drr)}">${fmtPct(r.ad_drr)}</td>
+    <td class="${colorDrr(r.total_drr)}">${fmtPct(r.total_drr)}</td>
+  </tr>`).join('');
+
+  let dayTable = `<div style="overflow:auto;margin-bottom:16px">
+    <table class="an-table">
+      <thead><tr>
+        <th>Дата</th><th>Заказы ₽</th><th>Заказы шт</th><th>Органика</th><th>Реклама</th>
+        <th>Ср. чек</th><th>Показы</th><th>Корзины</th><th>CR→корзина</th><th>CR→заказ</th>
+        <th>Расход</th><th>ДРР РК</th><th>ДРР общий</th>
+      </tr></thead>
+      <tbody>${dayRows}</tbody>
+    </table>
+  </div>`;
+
+  // Таблица по товарам
+  let prodRows = (d.products || []).map(p => `<tr>
+    <td style="font-family:monospace;font-size:11px">${p.nmId}</td>
+    <td>${p.vendorCode || '—'}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${p.title || '—'}</td>
+    <td>${fmt(p.orders_qty)}</td>
+    <td>${fmtK(p.orders_rub)}</td>
+    <td>${fmtPct(p.cr_open_cart)}</td>
+    <td class="${colorStock(p.stock)}">${fmt(p.stock)} шт</td>
+    <td>${p.rating ? parseFloat(p.rating).toFixed(1) : '—'}</td>
+  </tr>`).join('');
+
+  let prodTable = `<div style="font-size:13px;font-weight:500;margin-bottom:8px">Товары за период</div>
+  <div style="overflow:auto">
+    <table class="an-table">
+      <thead><tr>
+        <th>nmID</th><th>Артикул</th><th>Название</th><th>Заказы шт</th><th>Заказы ₽</th>
+        <th>CR→корзина</th><th>Остаток</th><th>Рейтинг</th>
+      </tr></thead>
+      <tbody>${prodRows || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
+    </table>
+  </div>`;
+
+  el.innerHTML = kpi + `<div style="font-size:13px;font-weight:500;margin-bottom:8px">По дням</div>` + dayTable + prodTable;
+}
+
+function renderAdsDaily() {
+  const el = document.getElementById('analyticsContent');
+  if (!adsData) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы. Добавь токен «Реклама» в настройках кабинета.</div></div>';
+    return;
+  }
+  const rows = (adsData.daily || []).map(r => `<tr>
+    <td>${r.date?.slice(5)}</td>
+    <td>${fmtK(r.spend)}</td>
+    <td>${fmtK(r.revenue)}</td>
+    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
+    <td>${fmt(r.views)}</td>
+    <td>${fmt(r.clicks)}</td>
+    <td>${fmtPct(r.ctr)}</td>
+    <td>${fmt(r.carts)}</td>
+    <td>${fmtPct(r.cr_cart)}</td>
+    <td>${fmt(r.orders)}</td>
+    <td>${fmtPct(r.cr_order)}</td>
+    <td>${fmtK(r.cpc)}</td>
+    <td>${fmtK(r.cpo)}</td>
+  </tr>`).join('');
+
+  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
+    <thead><tr>
+      <th>Дата</th><th>Расход</th><th>Продажи</th><th>ДРР</th><th>Показы</th><th>Клики</th>
+      <th>CTR</th><th>Корзины</th><th>CR→корзина</th><th>Заказы</th><th>CR→заказ</th><th>CPC</th><th>CPO</th>
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="13" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
+  </table></div>`;
+}
+
+function renderAdsCampaigns() {
+  const el = document.getElementById('analyticsContent');
+  if (!adsData) { el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы</div></div>'; return; }
+  const rows = (adsData.campaigns || []).map(r => `<tr>
+    <td>${r.id}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.name || '—'}</td>
+    <td>${fmtK(r.spend)}</td>
+    <td>${fmtK(r.revenue)}</td>
+    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
+    <td>${fmt(r.views)}</td>
+    <td>${fmt(r.clicks)}</td>
+    <td>${fmtPct(r.ctr)}</td>
+    <td>${fmt(r.carts)}</td>
+    <td>${fmt(r.orders)}</td>
+    <td>${fmtK(r.cpc)}</td>
+    <td>${fmtK(r.cpo)}</td>
+  </tr>`).join('');
+
+  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
+    <thead><tr>
+      <th>ID РК</th><th>Название</th><th>Расход</th><th>Продажи</th><th>ДРР</th>
+      <th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th>
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
+  </table></div>`;
+}
+
+function renderAdsSku() {
+  const el = document.getElementById('analyticsContent');
+  if (!adsData) { el.innerHTML = '<div class="empty"><div class="empty-icon">📣</div><div>Нет данных рекламы</div></div>'; return; }
+  const rows = (adsData.skus || []).map(r => `<tr>
+    <td style="font-family:monospace;font-size:11px">${r.nm_id}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.camp_name || '—'}</td>
+    <td>${fmtK(r.spend)}</td>
+    <td>${fmtK(r.revenue)}</td>
+    <td class="${colorDrr(r.drr)}">${fmtPct(r.drr)}</td>
+    <td>${fmt(r.views)}</td>
+    <td>${fmt(r.clicks)}</td>
+    <td>${fmtPct(r.ctr)}</td>
+    <td>${fmt(r.carts)}</td>
+    <td>${fmt(r.orders)}</td>
+    <td>${fmtK(r.cpc)}</td>
+    <td>${fmtK(r.cpo)}</td>
+  </tr>`).join('');
+
+  el.innerHTML = `<div style="overflow:auto"><table class="an-table">
+    <thead><tr>
+      <th>nmID</th><th>РК</th><th>Расход</th><th>Продажи</th><th>ДРР</th>
+      <th>Показы</th><th>Клики</th><th>CTR</th><th>Корзины</th><th>Заказы</th><th>CPC</th><th>CPO</th>
+    </tr></thead>
+    <tbody>${rows || '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px">Нет данных</td></tr>'}</tbody>
+  </table></div>`;
+}
+
+async function askAnalytics() {
+  const input = document.getElementById('analyticsChatInput');
+  const answer = document.getElementById('analyticsChatAnswer');
+  const question = input.value.trim();
+  if (!question) return;
+  if (!S.anthropicKey) { alert('Добавь Anthropic API ключ в настройках'); return; }
+  const c = cab();
+  if (!c) return;
+  const dates = getAnalyticsDates();
+  const tokenA = c.tokenAnalytics || c.tokenFeedback;
+  answer.style.display = 'block';
+  answer.textContent = 'Думаю...';
+  input.value = '';
+  const r = await safeFetch('/analytics/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      wb_token_analytics: tokenA,
+      wb_token_advert: c.tokenAdvert || '',
+      anthropic_key: S.anthropicKey,
+      question,
+      date_from: dates.from,
+      date_to: dates.to
+    })
+  }, 'POST /analytics/chat');
+  answer.textContent = r.ok ? r.data.answer : '❌ ' + r.error;
 }
 
 // ── Инициализация ─────────────────────────────────────────────────────────────
