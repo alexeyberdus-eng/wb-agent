@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import httpx
 import anthropic
+import datetime
 import json
 
 app = FastAPI()
@@ -191,6 +192,54 @@ class WBClient:
     def get_paid_storage(self, date_from: str, date_to: str):
         return self.post(self.ANALYTICS, "/api/v1/paid_storage",
             {"dateFrom": date_from, "dateTo": date_to})
+
+    def get_sales_funnel_products(self, start_date: str, end_date: str):
+        """Каталог товаров с остатками и воронкой за период"""
+        d1 = datetime.date.fromisoformat(start_date)
+        d2 = datetime.date.fromisoformat(end_date)
+        days = (d2 - d1).days + 1
+        past_end = (d1 - datetime.timedelta(days=1)).isoformat()
+        past_start = (datetime.date.fromisoformat(past_end) - datetime.timedelta(days=days-1)).isoformat()
+        products, offset = [], 0
+        while True:
+            body = {
+                "selectedPeriod": {"start": start_date, "end": end_date},
+                "pastPeriod": {"start": past_start, "end": past_end},
+                "nmIds": [], "brandNames": [], "subjectIds": [], "tagIds": [],
+                "skipDeletedNm": True,
+                "orderBy": {"field": "openCard", "mode": "desc"},
+                "limit": 1000, "offset": offset
+            }
+            r = self.post(self.ANALYTICS, "/api/analytics/v3/sales-funnel/products", body)
+            batch = (r or {}).get("data", {}).get("products", [])
+            products.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += 1000
+        return products
+
+    def get_sales_funnel_history(self, start_date: str, end_date: str, nm_ids: list):
+        """Дневная воронка по артикулам"""
+        body = {
+            "selectedPeriod": {"start": start_date, "end": end_date},
+            "nmIds": nm_ids,
+            "skipDeletedNm": True,
+            "aggregationLevel": "day"
+        }
+        return self.post(self.ANALYTICS, "/api/analytics/v3/sales-funnel/products/history", body)
+
+    def get_advert_count(self):
+        """Список кампаний"""
+        return self.get(self.ADVERT, "/adv/v1/promotion/count")
+
+    def get_advert_fullstats_analytics(self, ids: list, from_date: str, to_date: str):
+        """Полная статистика рекламных кампаний"""
+        params = {
+            "ids": ",".join(str(i) for i in ids),
+            "beginDate": from_date,
+            "endDate": to_date
+        }
+        return self.get(self.ADVERT, "/adv/v3/fullstats", params)
 
 
 # ─── Инструменты агента ───────────────────────────────────────────────────────
@@ -687,6 +736,476 @@ async def publish_reply(req: PublishReplyRequest):
         raise
     except Exception as e:
         print(f"PUBLISH EXCEPTION: {e}")
+        raise HTTPException(500, str(e))
+
+
+# ─── АНАЛИТИКА — прямые эндпоинты ────────────────────────────────────────────
+
+class AnalyticsRequest(BaseModel):
+    wb_token_analytics: str
+    wb_token_advert: str = ""
+    date_from: str
+    date_to: str
+
+class AnalyticsChatRequest(BaseModel):
+    wb_token_analytics: str
+    wb_token_advert: str = ""
+    anthropic_key: str
+    question: str
+    date_from: str
+    date_to: str
+
+
+def _safe_num(v):
+    try:
+        return float(v or 0)
+    except:
+        return 0.0
+
+def _safe_div(a, b):
+    a, b = _safe_num(a), _safe_num(b)
+    return a / b if b else 0.0
+
+
+@app.post("/analytics/dashboard")
+async def analytics_dashboard(req: AnalyticsRequest):
+    """Общий дашборд: воронка по товарам + реклама"""
+    try:
+        wb = WBClient(req.wb_token_analytics)
+
+        # 1. Каталог товаров
+        products_raw = wb.get_sales_funnel_products(req.date_from, req.date_to)
+        nm_ids = [int(p["product"]["nmId"]) for p in products_raw if p.get("product", {}).get("nmId")]
+
+        # 2. Дневная история воронки (батчами по 20)
+        history_rows = []
+        if nm_ids:
+            batch_size = 20
+            for i in range(0, len(nm_ids), batch_size):
+                batch = nm_ids[i:i+batch_size]
+                try:
+                    r = wb.get_sales_funnel_history(req.date_from, req.date_to, batch)
+                    if isinstance(r, list):
+                        history_rows.extend(r)
+                except Exception as e:
+                    print(f"History batch error: {e}")
+
+        # 3. Агрегация по дням (общая)
+        daily = {}
+        product_totals = {}
+
+        for item in history_rows:
+            prod = item.get("product", {})
+            nm_id = prod.get("nmId")
+            vendor = prod.get("vendorCode", "")
+            title = prod.get("title", "")
+            for day in item.get("history", []):
+                date = day.get("date", "")[:10]
+                if not date:
+                    continue
+                opens = _safe_num(day.get("openCount"))
+                carts = _safe_num(day.get("cartCount"))
+                orders_qty = _safe_num(day.get("orderCount"))
+                orders_rub = _safe_num(day.get("orderSum"))
+                buyouts_qty = _safe_num(day.get("buyoutCount"))
+                buyouts_rub = _safe_num(day.get("buyoutSum"))
+                cancels_qty = _safe_num(day.get("cancelCount"))
+
+                if date not in daily:
+                    daily[date] = {"opens": 0, "carts": 0, "orders_qty": 0, "orders_rub": 0,
+                                   "buyouts_qty": 0, "buyouts_rub": 0, "cancels_qty": 0}
+                daily[date]["opens"] += opens
+                daily[date]["carts"] += carts
+                daily[date]["orders_qty"] += orders_qty
+                daily[date]["orders_rub"] += orders_rub
+                daily[date]["buyouts_qty"] += buyouts_qty
+                daily[date]["buyouts_rub"] += buyouts_rub
+                daily[date]["cancels_qty"] += cancels_qty
+
+                key = str(nm_id)
+                if key not in product_totals:
+                    product_totals[key] = {
+                        "nmId": nm_id, "vendorCode": vendor, "title": title,
+                        "opens": 0, "carts": 0, "orders_qty": 0, "orders_rub": 0,
+                        "buyouts_qty": 0, "stock": 0
+                    }
+                product_totals[key]["opens"] += opens
+                product_totals[key]["carts"] += carts
+                product_totals[key]["orders_qty"] += orders_qty
+                product_totals[key]["orders_rub"] += orders_rub
+                product_totals[key]["buyouts_qty"] += buyouts_qty
+
+        # 4. Остатки из каталога
+        for p in products_raw:
+            prod = p.get("product", {})
+            nm_id = str(prod.get("nmId", ""))
+            stocks = prod.get("stocks", {})
+            stock_total = _safe_num(stocks.get("wb")) + _safe_num(stocks.get("mp"))
+            if nm_id in product_totals:
+                product_totals[nm_id]["stock"] = stock_total
+                product_totals[nm_id]["rating"] = _safe_num(prod.get("productRating"))
+            elif nm_id:
+                product_totals[nm_id] = {
+                    "nmId": prod.get("nmId"), "vendorCode": prod.get("vendorCode", ""),
+                    "title": prod.get("title", ""), "opens": 0, "carts": 0,
+                    "orders_qty": 0, "orders_rub": 0, "buyouts_qty": 0,
+                    "stock": stock_total, "rating": _safe_num(prod.get("productRating"))
+                }
+
+        # 5. Реклама (если токен передан)
+        ad_daily = {}
+        if req.wb_token_advert:
+            try:
+                wb_ads = WBClient(req.wb_token_advert)
+                counts_r = wb_ads.get_advert_count()
+                all_ids = []
+                for group in (counts_r or {}).get("adverts", []):
+                    status = group.get("status")
+                    if status in [7, 9, 11]:
+                        for item in group.get("advert_list", []):
+                            aid = item.get("advertId")
+                            if aid:
+                                all_ids.append(int(aid))
+
+                if all_ids:
+                    # Батч по 50
+                    for i in range(0, len(all_ids[:150]), 50):
+                        batch = all_ids[i:i+50]
+                        try:
+                            stats = wb_ads.get_advert_fullstats_analytics(batch, req.date_from, req.date_to)
+                            for camp in (stats or []):
+                                for day in (camp.get("days") or []):
+                                    date = str(day.get("date", ""))[:10]
+                                    if not date:
+                                        continue
+                                    spend, views, clicks, carts, orders = 0, 0, 0, 0, 0
+                                    revenue = 0
+                                    for app_data in day.get("apps", []):
+                                        for nm in app_data.get("nms", []):
+                                            spend += _safe_num(nm.get("sum"))
+                                            views += _safe_num(nm.get("views"))
+                                            clicks += _safe_num(nm.get("clicks"))
+                                            carts += _safe_num(nm.get("atbs"))
+                                            orders += _safe_num(nm.get("orders"))
+                                            revenue += _safe_num(nm.get("sum_price"))
+                                    if date not in ad_daily:
+                                        ad_daily[date] = {"spend": 0, "views": 0, "clicks": 0,
+                                                          "carts": 0, "orders": 0, "revenue": 0}
+                                    ad_daily[date]["spend"] += spend
+                                    ad_daily[date]["views"] += views
+                                    ad_daily[date]["clicks"] += clicks
+                                    ad_daily[date]["carts"] += carts
+                                    ad_daily[date]["orders"] += orders
+                                    ad_daily[date]["revenue"] += revenue
+                        except Exception as e:
+                            print(f"Ads batch error: {e}")
+            except Exception as e:
+                print(f"Ads error: {e}")
+
+        # 6. Итоговая сборка с метриками
+        dates_sorted = sorted(daily.keys(), reverse=True)
+
+        # Сводка за период
+        total = {"opens": 0, "carts": 0, "orders_qty": 0, "orders_rub": 0,
+                 "ad_spend": 0, "ad_orders": 0, "ad_revenue": 0, "ad_clicks": 0, "ad_views": 0}
+        for d in daily.values():
+            total["opens"] += d["opens"]
+            total["carts"] += d["carts"]
+            total["orders_qty"] += d["orders_qty"]
+            total["orders_rub"] += d["orders_rub"]
+        for d in ad_daily.values():
+            total["ad_spend"] += d["spend"]
+            total["ad_orders"] += d["orders"]
+            total["ad_revenue"] += d["revenue"]
+            total["ad_clicks"] += d["clicks"]
+            total["ad_views"] += d["views"]
+
+        organic_orders = max(0, total["orders_qty"] - total["ad_orders"])
+        total["organic_orders"] = organic_orders
+        total["ad_drr"] = _safe_div(total["ad_spend"], total["ad_revenue"])
+        total["total_drr"] = _safe_div(total["ad_spend"], total["orders_rub"])
+        total["ctr"] = _safe_div(total["ad_clicks"], total["ad_views"])
+        total["cr_open_cart"] = _safe_div(total["carts"], total["opens"])
+        total["cr_cart_order"] = _safe_div(total["orders_qty"], total["carts"])
+        total["avg_check"] = _safe_div(total["orders_rub"], total["orders_qty"])
+
+        # По дням
+        daily_list = []
+        for date in dates_sorted:
+            d = daily[date]
+            ad = ad_daily.get(date, {})
+            ad_orders = min(d["orders_qty"], _safe_num(ad.get("orders", 0)))
+            ad_spend = _safe_num(ad.get("spend", 0))
+            ad_rev = _safe_num(ad.get("revenue", 0))
+            ad_clicks = _safe_num(ad.get("clicks", 0))
+            ad_views = _safe_num(ad.get("views", 0))
+            daily_list.append({
+                "date": date,
+                "opens": d["opens"],
+                "carts": d["carts"],
+                "orders_qty": d["orders_qty"],
+                "orders_rub": round(d["orders_rub"]),
+                "buyouts_qty": d["buyouts_qty"],
+                "ad_orders": round(ad_orders),
+                "organic_orders": round(max(0, d["orders_qty"] - ad_orders)),
+                "avg_check": round(_safe_div(d["orders_rub"], d["orders_qty"])),
+                "ad_spend": round(ad_spend),
+                "ad_revenue": round(ad_rev),
+                "ad_drr": round(_safe_div(ad_spend, ad_rev) * 100, 1),
+                "total_drr": round(_safe_div(ad_spend, d["orders_rub"]) * 100, 1),
+                "ctr": round(_safe_div(ad_clicks, ad_views) * 100, 2),
+                "cr_open_cart": round(_safe_div(d["carts"], d["opens"]) * 100, 1),
+                "cr_cart_order": round(_safe_div(d["orders_qty"], d["carts"]) * 100, 1),
+            })
+
+        # По товарам
+        products_list = sorted(
+            product_totals.values(),
+            key=lambda x: x.get("orders_rub", 0),
+            reverse=True
+        )
+
+        return {
+            "success": True,
+            "period": {"from": req.date_from, "to": req.date_to},
+            "summary": {
+                "orders_rub": round(total["orders_rub"]),
+                "orders_qty": round(total["orders_qty"]),
+                "organic_orders": round(total["organic_orders"]),
+                "ad_orders": round(total["ad_orders"]),
+                "avg_check": round(total["avg_check"]),
+                "opens": round(total["opens"]),
+                "carts": round(total["carts"]),
+                "ad_spend": round(total["ad_spend"]),
+                "ad_drr": round(total["ad_drr"] * 100, 1),
+                "total_drr": round(total["total_drr"] * 100, 1),
+                "ctr": round(total["ctr"] * 100, 2),
+                "cr_open_cart": round(total["cr_open_cart"] * 100, 1),
+                "cr_cart_order": round(total["cr_cart_order"] * 100, 1),
+                "products_count": len(product_totals),
+            },
+            "daily": daily_list,
+            "products": [
+                {
+                    "nmId": p["nmId"],
+                    "vendorCode": p.get("vendorCode", ""),
+                    "title": p.get("title", "")[:40],
+                    "opens": round(p.get("opens", 0)),
+                    "carts": round(p.get("carts", 0)),
+                    "orders_qty": round(p.get("orders_qty", 0)),
+                    "orders_rub": round(p.get("orders_rub", 0)),
+                    "cr_open_cart": round(_safe_div(p.get("carts",0), p.get("opens",1))*100, 1),
+                    "stock": round(p.get("stock", 0)),
+                    "rating": p.get("rating", 0),
+                }
+                for p in products_list[:50]
+            ]
+        }
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, f"WB API {e.response.status_code}: {e.response.text[:300]}")
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/analytics/ads")
+async def analytics_ads(req: AnalyticsRequest):
+    """Рекламная аналитика: ежедневная, по РК, по артикулам"""
+    if not req.wb_token_advert:
+        raise HTTPException(400, "Нужен токен рекламы (wb_token_advert)")
+    try:
+        wb = WBClient(req.wb_token_advert)
+
+        # Список активных кампаний
+        counts_r = wb.get_advert_count()
+        all_ids = []
+        for group in (counts_r or {}).get("adverts", []):
+            if group.get("status") in [7, 9, 11]:
+                for item in group.get("advert_list", []):
+                    aid = item.get("advertId")
+                    if aid:
+                        all_ids.append(int(aid))
+
+        if not all_ids:
+            return {"success": True, "daily": [], "campaigns": [], "skus": []}
+
+        # Fullstats батчами по 50
+        all_stats = []
+        for i in range(0, len(all_ids[:150]), 50):
+            batch = all_ids[i:i+50]
+            try:
+                stats = wb.get_advert_fullstats_analytics(batch, req.date_from, req.date_to)
+                if isinstance(stats, list):
+                    all_stats.extend(stats)
+            except Exception as e:
+                print(f"Fullstats batch {i}: {e}")
+
+        # Агрегация: daily, по кампаниям, по артикулам
+        daily = {}
+        campaigns = {}
+        skus = {}
+
+        for camp in all_stats:
+            camp_id = camp.get("advertId")
+            camp_name = f"РК {camp_id}"
+
+            for day in camp.get("days", []):
+                date = str(day.get("date", ""))[:10]
+                if not date:
+                    continue
+
+                if date not in daily:
+                    daily[date] = {"spend": 0, "revenue": 0, "direct_orders": 0,
+                                   "assoc_orders": 0, "views": 0, "clicks": 0, "carts": 0}
+
+                camp_key = str(camp_id)
+                if camp_key not in campaigns:
+                    campaigns[camp_key] = {"id": camp_id, "name": camp_name,
+                                            "spend": 0, "revenue": 0, "orders": 0,
+                                            "views": 0, "clicks": 0, "carts": 0, "byDate": {}}
+
+                for app_data in day.get("apps", []):
+                    for nm in app_data.get("nms", []):
+                        nm_id = nm.get("nmId") or nm.get("nm")
+                        spend = _safe_num(nm.get("sum"))
+                        views = _safe_num(nm.get("views"))
+                        clicks = _safe_num(nm.get("clicks"))
+                        carts = _safe_num(nm.get("atbs"))
+                        orders = _safe_num(nm.get("orders"))
+                        revenue = _safe_num(nm.get("sum_price"))
+
+                        daily[date]["spend"] += spend
+                        daily[date]["revenue"] += revenue
+                        daily[date]["direct_orders"] += orders
+                        daily[date]["views"] += views
+                        daily[date]["clicks"] += clicks
+                        daily[date]["carts"] += carts
+
+                        campaigns[camp_key]["spend"] += spend
+                        campaigns[camp_key]["revenue"] += revenue
+                        campaigns[camp_key]["orders"] += orders
+                        campaigns[camp_key]["views"] += views
+                        campaigns[camp_key]["clicks"] += clicks
+                        campaigns[camp_key]["carts"] += carts
+
+                        if nm_id:
+                            sku_key = f"{camp_id}|{nm_id}"
+                            if sku_key not in skus:
+                                skus[sku_key] = {"camp_id": camp_id, "camp_name": camp_name,
+                                                  "nm_id": nm_id, "spend": 0, "revenue": 0,
+                                                  "orders": 0, "views": 0, "clicks": 0, "carts": 0}
+                            skus[sku_key]["spend"] += spend
+                            skus[sku_key]["revenue"] += revenue
+                            skus[sku_key]["orders"] += orders
+                            skus[sku_key]["views"] += views
+                            skus[sku_key]["clicks"] += clicks
+                            skus[sku_key]["carts"] += carts
+
+        # Сборка результатов
+        def enrich(d):
+            spend = d.get("spend", 0)
+            revenue = d.get("revenue", 0)
+            orders = d.get("orders") or d.get("direct_orders", 0)
+            views = d.get("views", 0)
+            clicks = d.get("clicks", 0)
+            carts = d.get("carts", 0)
+            return {
+                **d,
+                "spend": round(spend),
+                "revenue": round(revenue),
+                "orders": round(orders),
+                "drr": round(_safe_div(spend, revenue) * 100, 1),
+                "ctr": round(_safe_div(clicks, views) * 100, 2),
+                "cr_cart": round(_safe_div(carts, clicks) * 100, 1),
+                "cr_order": round(_safe_div(orders, carts) * 100, 1),
+                "cpc": round(_safe_div(spend, clicks), 1),
+                "cpo": round(_safe_div(spend, orders), 1),
+            }
+
+        daily_list = [
+            enrich({"date": d, **v})
+            for d, v in sorted(daily.items(), reverse=True)
+        ]
+
+        campaigns_list = sorted(
+            [enrich(v) for v in campaigns.values()],
+            key=lambda x: x.get("spend", 0), reverse=True
+        )
+
+        skus_list = sorted(
+            [enrich({"nm_id": v["nm_id"], "camp_name": v["camp_name"], **v})
+             for v in skus.values()],
+            key=lambda x: x.get("spend", 0), reverse=True
+        )[:100]
+
+        return {
+            "success": True,
+            "period": {"from": req.date_from, "to": req.date_to},
+            "daily": daily_list,
+            "campaigns": campaigns_list,
+            "skus": skus_list,
+        }
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, f"WB API {e.response.status_code}: {e.response.text[:300]}")
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/analytics/chat")
+async def analytics_chat(req: AnalyticsChatRequest):
+    """Свободный вопрос к данным аналитики через Claude"""
+    try:
+        # Собираем данные
+        wb = WBClient(req.wb_token_analytics)
+        products_raw = wb.get_sales_funnel_products(req.date_from, req.date_to)
+
+        nm_ids = [int(p["product"]["nmId"]) for p in products_raw[:30]
+                  if p.get("product", {}).get("nmId")]
+
+        # Краткая сводка для контекста
+        summary_lines = []
+        total_orders = 0
+        total_rub = 0
+        for p in products_raw[:20]:
+            prod = p.get("product", {})
+            stat = (p.get("statistic") or {}).get("selected") or {}
+            orders = _safe_num(stat.get("orderCount"))
+            rub = _safe_num(stat.get("orderSum"))
+            stock_wb = _safe_num((prod.get("stocks") or {}).get("wb"))
+            total_orders += orders
+            total_rub += rub
+            summary_lines.append(
+                f"{prod.get('vendorCode','—')} | {prod.get('title','')[:30]} | "
+                f"заказы: {round(orders)} шт / {round(rub/1000)}к₽ | остаток: {round(stock_wb)} шт"
+            )
+
+        context = f"""Данные по магазину WB за период {req.date_from} — {req.date_to}:
+
+Итого: {round(total_orders)} заказов на {round(total_rub/1000)}к₽
+
+Товары (топ по заказам):
+""" + "
+".join(summary_lines)
+
+        claude = anthropic.Anthropic(api_key=req.anthropic_key)
+        prompt = f"""{context}
+
+Вопрос продавца: {req.question}
+
+Отвечай кратко, по делу, на русском языке. Если нужны конкретные числа — используй данные выше."""
+
+        r = claude.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {"success": True, "answer": r.content[0].text}
+
+    except anthropic.AuthenticationError:
+        raise HTTPException(400, "Неверный Anthropic API ключ")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, f"WB API {e.response.status_code}: {e.response.text[:200]}")
+    except Exception as e:
         raise HTTPException(500, str(e))
 
 
