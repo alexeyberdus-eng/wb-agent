@@ -1207,4 +1207,128 @@ async def analytics_chat(req: AnalyticsChatRequest):
         raise HTTPException(500, str(e))
 
 
+
+# ─── Google Sheets кэш ────────────────────────────────────────────────────────
+import time
+import csv
+import io
+
+_sheets_cache: dict = {}
+_sheets_cache_time: dict = {}
+CACHE_TTL = 1800  # 30 минут
+
+SHEET_NAMES = {
+    "dashboard": "WB DASHBOARD",
+    "ads_daily": "WB Ежедневная реклама",
+    "ads_campaigns": "WB РК эффективность",
+    "ads_sku": "WB Статистика артикулов",
+    "ads_cpm": "WB CPM Ключи",
+}
+
+def extract_sheet_id(url: str) -> str:
+    """Извлекает ID таблицы из ссылки Google Sheets"""
+    import re
+    m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url)
+    return m.group(1) if m else ""
+
+def fetch_sheet_csv(sheet_id: str, sheet_name: str) -> list:
+    """Читает лист Google Sheets как CSV"""
+    cache_key = f"{sheet_id}:{sheet_name}"
+    now = time.time()
+    if cache_key in _sheets_cache and now - _sheets_cache_time.get(cache_key, 0) < CACHE_TTL:
+        return _sheets_cache[cache_key]
+    
+    # URL для экспорта конкретного листа по имени
+    import urllib.parse
+    encoded_name = urllib.parse.quote(sheet_name)
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={encoded_name}"
+    
+    r = httpx.get(url, timeout=30, follow_redirects=True)
+    r.raise_for_status()
+    
+    text = r.text
+    reader = csv.reader(io.StringIO(text))
+    rows = list(reader)
+    
+    _sheets_cache[cache_key] = rows
+    _sheets_cache_time[cache_key] = now
+    return rows
+
+
+class SheetsRequest(BaseModel):
+    sheets_url: str
+    sheet_key: str = "dashboard"
+    force_refresh: bool = False
+
+
+@app.post("/sheets/data")
+async def get_sheets_data(req: SheetsRequest):
+    """Читает данные из Google Sheets напрямую"""
+    try:
+        sheet_id = extract_sheet_id(req.sheets_url)
+        if not sheet_id:
+            raise HTTPException(400, "Неверная ссылка на Google Sheets")
+        
+        sheet_name = SHEET_NAMES.get(req.sheet_key)
+        if not sheet_name:
+            raise HTTPException(400, f"Неизвестный лист: {req.sheet_key}")
+        
+        # Принудительный сброс кэша
+        if req.force_refresh:
+            cache_key = f"{sheet_id}:{sheet_name}"
+            _sheets_cache.pop(cache_key, None)
+            _sheets_cache_time.pop(cache_key, None)
+        
+        rows = fetch_sheet_csv(sheet_id, sheet_name)
+        
+        return {
+            "success": True,
+            "sheet": sheet_name,
+            "rows": rows,
+            "cached": not req.force_refresh,
+            "updated_at": time.strftime("%H:%M:%S")
+        }
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(e.response.status_code, 
+            f"Ошибка доступа к Google Sheets: {e.response.status_code}. Убедись что таблица открыта для всех.")
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/sheets/ask")
+async def sheets_ask(req: AnalyticsChatRequest):
+    """Вопрос к данным из Google Sheets через Claude"""
+    try:
+        sheet_id = extract_sheet_id(req.wb_token_analytics)  # используем это поле для URL
+        if not sheet_id:
+            raise HTTPException(400, "Неверная ссылка")
+        
+        # Читаем дашборд для контекста
+        rows = fetch_sheet_csv(sheet_id, "WB DASHBOARD")
+        
+        # Берём первые 30 строк для контекста
+        context_rows = rows[:40]
+        context_text = "\n".join([",".join(row[:8]) for row in context_rows])
+        
+        claude = anthropic.Anthropic(api_key=req.anthropic_key)
+        prompt = f"""Ты аналитик магазина на Wildberries. Вот данные из дашборда (CSV формат, первые столбцы):
+
+{context_text}
+
+Вопрос: {req.question}
+
+Отвечай кратко и по делу на русском языке. Используй конкретные цифры из данных."""
+
+        r = claude.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {"success": True, "answer": r.content[0].text}
+    except anthropic.AuthenticationError:
+        raise HTTPException(400, "Неверный Anthropic API ключ")
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
