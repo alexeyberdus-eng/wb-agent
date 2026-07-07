@@ -1179,14 +1179,12 @@ async def analytics_chat(req: AnalyticsChatRequest):
                 f"заказы: {round(orders)} шт / {round(rub/1000)}к₽ | остаток: {round(stock_wb)} шт"
             )
 
-        context = f"""Данные по магазину WB за период {req.date_from} — {req.date_to}:
-
-Итого: {round(total_orders)} заказов на {round(total_rub/1000)}к₽
-
-Товары (топ по заказам):
-""" + "
-".join(summary_lines)
-
+        summary_text = "\n".join(summary_lines)
+        context = (
+            f"Данные по магазину WB за период {req.date_from} — {req.date_to}:\n\n"
+            f"Итого: {round(total_orders)} заказов на {round(total_rub/1000)}к₽\n\n"
+            f"Товары (топ по заказам):\n{summary_text}"
+        )
         claude = anthropic.Anthropic(api_key=req.anthropic_key)
         prompt = f"""{context}
 
